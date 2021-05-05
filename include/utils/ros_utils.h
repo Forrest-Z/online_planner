@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <planner/planner_common.h>
 #include <mapping/octomap_handler.h>
+#include <planner/local_planner/motion_primitives_planner.h>
 
 namespace online_planner{
 inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private){
@@ -23,6 +24,41 @@ inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private)
     param.bbxMax.x() = x_max;
     param.bbxMax.y() = y_max;
     param.bbxMax.z() = z_max;
+    return param;
+}
+
+inline MpEvaluator::Param loadMpEvalParam(ros::NodeHandle nh_private){
+    MpEvaluator::Param param;
+    nh_private.param("k_col", param.k_col, 15.0);
+    nh_private.param("k_per", param.k_per, 5.0);
+    nh_private.param("k_prox", param.k_prox, 2.0);
+    nh_private.param("k_end", param.k_end, 4.0);
+    nh_private.param("d_critic", param.d_critic, 0.5);
+
+    nh_private.param("safe_dist", param.safe_dist, 1.0);
+    nh_private.param("dist_th", param.dist_th, 0.6);
+    nh_private.param("power_dist", param.power_dist, 3);
+
+    nh_private.param("v_max", param.v_max, 2.0);
+    nh_private.param("a_max", param.a_max, 4.0);
+    nh_private.param("J", param.J, 10);
+    nh_private.param("h_fov", param.h_fov, 90.0);
+    nh_private.param("v_fov", param.v_fov, 73.8);
+    return param;
+}
+
+inline MpPlanner::Param loadMpPlannerParam(ros::NodeHandle nh_private){
+    MpPlanner::Param param;
+    nh_private.param("L", param.L, 5.0);
+    nh_private.param("h_ang_max", param.h_ang_max, 45.0);
+    nh_private.param("v_ang", param.v_ang, 10.0);
+    nh_private.param("v_des", param.v_des, 1.5);
+    nh_private.param("k_th", param.k_th, 180.0);
+    nh_private.param("h_res", param.h_res, 20);
+    nh_private.param("v_res", param.v_res, 5);
+    
+    param.eval_param = loadMpEvalParam(nh_private);
+
     return param;
 }
 

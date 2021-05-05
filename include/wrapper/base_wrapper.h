@@ -4,6 +4,7 @@
 #include <global_planner/global_planner.h>
 #include <local_planner/local_planner.h>
 #include <ros/ros.h>
+#include <ros/callback_queue.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <mavros_msgs/State.h>
@@ -13,6 +14,7 @@
 #include <mavros_msgs/PositionTarget.h>
 #include <transform_utils/transform_utils.h>
 #include <string>
+#include <thread>
 
 //status
 #define NOT_READY 0
@@ -26,16 +28,23 @@ class BaseWrapper{
 public:
     BaseWrapper();
     ~BaseWrapper();
-    virtual int run(){} //run the whole node
+    int run(); //run the whole node -> might require implementation
     virtual int run_map_and_viz(){}  //run mapping(subscription to sensor msgs) and publish visualization msgs when available
     virtual int run_global_planner(){} //run global planning in global planning thread
     virtual int run_local_planner(){} //run local planning in local planning thread
     virtual int run_setpoint_publisher(){} //run setpoint publisher in sp thread
 protected:
+    //thread
+    std::thread* map_and_viz_thread;
+    std::thread* global_planning_thread;
+    std::thread* local_planning_thread;
+    std::thread* setpoint_publishing_thread;
+
     void setupRos(); // setup ros related stuffs.
     ros::NodeHandle nh_default_; // handles heavy message processing.
     ros::NodeHandle nh_custom_; // handles more lightweight, high priority message / services 
-    
+    ros::CallbackQueue custom_queue;
+
     //All ros related actors are defined under nh_custom_.
     //publisher
     ros::Publisher sp_pub;
