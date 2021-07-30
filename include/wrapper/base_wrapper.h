@@ -20,6 +20,7 @@
 #define NOT_READY 0
 #define PREFLIGHT 1
 #define FLIGHT 2
+#define END 3
 
 // Describes basic threading for wrapper nodes
 namespace online_planner{
@@ -28,26 +29,25 @@ class BaseWrapper{
 public:
     BaseWrapper();
     ~BaseWrapper();
-    int run(); //run the whole node -> might require implementation
+    virtual int run(){}; //run the whole node
     virtual int run_map_and_viz(){}  //run mapping(subscription to sensor msgs) and publish visualization msgs when available
     virtual int run_global_planner(){} //run global planning in global planning thread
     virtual int run_local_planner(){} //run local planning in local planning thread
-    virtual int run_setpoint_publisher(){} //run setpoint publisher in sp thread
+    virtual int run_setpoint_publisher(); //run setpoint publisher in sp thread
 protected:
-    //thread
+    //thread : initialized & executed in run()
     std::thread* map_and_viz_thread;
     std::thread* global_planning_thread;
     std::thread* local_planning_thread;
     std::thread* setpoint_publishing_thread;
 
-    void setupRos(); // setup ros related stuffs.
     ros::NodeHandle nh_default_; // handles heavy message processing.
     ros::NodeHandle nh_custom_; // handles more lightweight, high priority message / services 
     ros::CallbackQueue custom_queue;
 
     //All ros related actors are defined under nh_custom_.
     //publisher
-    ros::Publisher sp_pub;
+    ros::Publisher sp_pub; //setpoint publisher (to mavros)
     mavros_msgs::PositionTarget pos_sp;
     
     //subscriber
@@ -57,9 +57,9 @@ protected:
     void odomCallback(const nav_msgs::OdometryConstPtr& msg);
 
     //client
-    ros::ServiceClient arming_client, setmode_client;
+    ros::ServiceClient arming_client, set_mode_client;
 
-    void initializeFlight(); // executed in setpoint publishing thread
+    //void initializeFlight(); // executed in setpoint publishing thread
     
     //variables
     transform_utils::SE3 T_ib_init; // initial pose in  "interface frame"(user defined frame)
@@ -73,7 +73,7 @@ protected:
     std::vector<SetPoint> current_best_trajectory; //whole trajectory
 
     //loaded from ros
-    int type_mask; //type_mask to use in planning(for initial takeoff sequence, use takeoff specific mask)
+    int type_mask; //type_mask to use in planning
     bool verbose; 
     double sp_publishing_rate; //setpoint publishing rate
     double local_planning_rate; // local planning rate
@@ -84,6 +84,9 @@ protected:
     bool transform_stabilized;  //transformation confirmed
     bool status_okay;           //offboard & armed
     bool flight_ready;         //takeoff_ready
+
+    bool is_px4; //true if px4
+    bool is_simple_flight; //true if using airsim-simpleflight api
 };
 
 }

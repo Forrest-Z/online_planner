@@ -9,6 +9,7 @@
 #include <utils/octomap_utils.h>
 #include <pcl/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <mutex>
 
 namespace online_planner{
 class OctomapHandler{
@@ -17,15 +18,16 @@ public:
         double oct_res;     //octomap resolution
         double max_range;   //maximum depth range;
         octomap::point3d bbxMin, bbxMax;
+        bool verbose;
     };
     OctomapHandler(Param param);
     ~OctomapHandler(){}
     double getDistanceAtPosition(Eigen::Vector3d p) const;
     double getDistanceAtPosition(octomath::Vector3 p) const;
     double getSafeDistanceAtPosition(Eigen::Vector3d p, double coll_thr) const;
-    void insertPointcloud(sensor_msgs::PointCloud2 pcd, geometry_msgs::Pose T_wc);
+    void insertUpdate(pcl::PointCloud<pcl::PointXYZI> changed_set);
     double castRay(Eigen::Vector3d origin, Eigen::Vector3d direction, double range, bool ignore_unknown=false);
-private:
+protected:
     std::unique_ptr<octomap::OcTree> ot_;
     std::unique_ptr<DynamicEDTOctomap> edt_;
 
@@ -33,6 +35,9 @@ private:
     double oct_res;     //octomap resolution
     double max_range;   //maximum depth range
     octomap::point3d bbxMin, bbxMax;  
+    bool verbose;
+
+    mutable std::mutex octomap_mtx_;
 };
 }//namespace online_planner
 

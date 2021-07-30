@@ -3,6 +3,7 @@
 
 //This file provide common types and definition that might be useful for planners
 #include <string>
+#include <transform_utils/transform_utils.h>
 #include <Eigen/Dense>
 
 namespace online_planner{
@@ -23,6 +24,11 @@ struct pvaState{
     Eigen::Vector3d velocity;
     Eigen::Vector3d accel;
     double yaw;
+};
+
+struct SE3State{
+    Eigen::Vector3d Position;
+    Eigen::Matrix3d Rotation;
 };
 
 using SetPoint = struct SetPoint;

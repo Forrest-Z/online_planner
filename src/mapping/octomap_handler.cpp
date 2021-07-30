@@ -3,7 +3,7 @@
 
 namespace online_planner{
 
-OctomapHandler::OctomapHandler(OctomapHandler::Param param): oct_res(param.oct_res), max_range(param.max_range){
+OctomapHandler::OctomapHandler(OctomapHandler::Param param): oct_res(param.oct_res), max_range(param.max_range), verbose(param.verbose){
     bbxMax = param.bbxMax; bbxMin = param.bbxMin;
     ot_ = std::unique_ptr<octomap::OcTree>(new octomap::OcTree(oct_res));
     ot_->setBBXMax(bbxMax);
@@ -18,19 +18,25 @@ double OctomapHandler::getDistanceAtPosition(Eigen::Vector3d p) const{
 }
 
 double OctomapHandler::getDistanceAtPosition(octomath::Vector3 p) const{
-    return edt_->getDistance(p);
+    std::unique_lock<std::mutex> lock(octomap_mtx_);
+    double dist = edt_->getDistance(p);
+    return dist;
 }
 
 double OctomapHandler::getSafeDistanceAtPosition(Eigen::Vector3d p, double coll_thr) const{
-    return getDistanceAtPosition(p) - coll_thr;
+    std::unique_lock<std::mutex> lock(octomap_mtx_);
+    double safe_dist = getDistanceAtPosition(p) - coll_thr;
+    return safe_dist;
 }
 
-void OctomapHandler::insertPointcloud(sensor_msgs::PointCloud2 pcd, geometry_msgs::Pose T_wc){
+void OctomapHandler::insertUpdate(pcl::PointCloud<pcl::PointXYZI> changed_set){
     auto start = std::chrono::system_clock::now();
-    octomap::Pointcloud oct_cloud;
-    pc2ToOctomap(pcd, oct_cloud);
-    octomath::Pose6D oct_pose = geoPose2octPose(T_wc);
-    ot_->insertPointCloud(oct_cloud, octomath::Vector3(0.0, 0.0, 0.0), oct_pose, max_range);
+    std::unique_lock<std::mutex> lock(octomap_mtx_);
+    for(size_t i = 0; i < changed_set.points.size(); ++i){
+        pcl::PointXYZI& pnt = changed_set.points[i];
+        ot_->updateNode(ot_->coordToKey(pnt.x, pnt.y, pnt.z), pnt.intensity, false);
+    }
+    ot_->updateInnerOccupancy();
     edt_->update();
     auto end = std::chrono::system_clock::now();
     auto microsec = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -40,7 +46,10 @@ double OctomapHandler::castRay(Eigen::Vector3d origin, Eigen::Vector3d direction
     octomath::Vector3 endpoint;
     octomath::Vector3 origin_o = toOctVec(origin);
     octomath::Vector3 dir_o = toOctVec(direction);
-    ot_->castRay(origin_o, dir_o, endpoint, ignore_unknown, range);
+    {
+        std::unique_lock<std::mutex> lock(octomap_mtx_);
+        ot_->castRay(origin_o, dir_o, endpoint, ignore_unknown, range);
+    }
     return (endpoint - origin_o).norm();
 }
 }//namespace online_planner

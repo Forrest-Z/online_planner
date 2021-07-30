@@ -11,6 +11,7 @@ inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private)
     OctomapHandler::Param param;
     nh_private.param("oct_res", param.oct_res, 0.1);
     nh_private.param("max_range", param.max_range, 7.0);
+    nh_private.param("print_map_update", param.verbose, false);
     double x_min, y_min, z_min, x_max, y_max, z_max;
     nh_private.param("x_min", x_min, -1.0);
     nh_private.param("y_min", y_min, -5.0);
@@ -60,6 +61,19 @@ inline MpPlanner::Param loadMpPlannerParam(ros::NodeHandle nh_private){
     param.eval_param = loadMpEvalParam(nh_private);
 
     return param;
+}
+
+inline Eigen::Vector3d get_vector3d_from_ros(const ros::NodeHandle& nh_private, std::string param_name){
+    double x, y, z;
+    bool found = true;
+    found = found && nh_private.getParam(param_name+"_1", x);
+    found = found && nh_private.getParam(param_name+"_2", y);
+    found = found && nh_private.getParam(param_name+"_3", z);
+    if(!found){
+        ROS_ERROR_STREAM(param_name<<" Not found");
+        return Eigen::Vector3d::Zero();
+    } 
+    return Eigen::Vector3d(x, y, z);
 }
 
 }

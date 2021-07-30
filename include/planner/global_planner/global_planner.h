@@ -4,6 +4,7 @@
 #include <planner/planner_common.h>
 #include <memory>
 #include <vector>
+#include <mutex>
 
 namespace online_planner{
 
@@ -33,6 +34,7 @@ public:
     void reset(){return;}
     void setInitPoint(pvaState x_init){x_init_ = x_init;}
     std::vector<globalPlan> findGlobalPath(){
+        std::unique_lock<std::mutex> lock(gplan_mtx_);
         std::vector<globalPlan> plans;
         globalPlan plan;
         plan.waypoints.push_back(x_init_.position);
@@ -41,9 +43,10 @@ public:
         return plans;
     }
     void setGoal(Eigen::Vector3d goal){goal_ = goal;}
-private:
+protected:
     Eigen::Vector3d goal_;
     pvaState x_init_;
+    std::mutex gplan_mtx_;
 };
 
 
