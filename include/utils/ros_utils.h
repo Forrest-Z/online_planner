@@ -2,7 +2,7 @@
 #define ONLINE_ROS_UTILS_H_
 
 #include <ros/ros.h>
-#include <planner/planner_common.h>
+#include <traj_lib/MavState.h>
 #include <mapping/octomap_handler.h>
 #include <planner/local_planner/motion_primitives_planner.h>
 
@@ -11,6 +11,7 @@ inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private)
     OctomapHandler::Param param;
     nh_private.param("oct_res", param.oct_res, 0.1);
     nh_private.param("max_range", param.max_range, 7.0);
+    nh_private.param("undersample_rate", param.undersample_rate, 4);
     nh_private.param("print_map_update", param.verbose, false);
     double x_min, y_min, z_min, x_max, y_max, z_max;
     nh_private.param("x_min", x_min, -1.0);
@@ -19,6 +20,7 @@ inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private)
     nh_private.param("x_max", x_max,  20.0);
     nh_private.param("y_max", y_max,  10.0);
     nh_private.param("z_max", z_max,  5.0);
+    nh_private.param("is_perspective", param.is_perspective, false);
     param.bbxMin.x() = x_min;
     param.bbxMin.y() = y_min;
     param.bbxMin.z() = z_min;

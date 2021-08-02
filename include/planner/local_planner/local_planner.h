@@ -1,18 +1,18 @@
 #ifndef ONLINE_LOCAL_PLANNER_H_
 #define ONLINE_LOCAL_PLANNER_H_
 
-#include <global_planner/global_planner.h>
+#include <planner/global_planner/global_planner.h>
 
 //Interface class of local planner
 namespace online_planner{
 class LocalPlannerBase{
 public:
     virtual ~LocalPlannerBase(){}
-    virtual void reset() = 0;
-    virtual void setInitState(pvaState p_init)=0;
+    virtual void reset(double t) = 0; //t : next starting time
+    virtual void setInitState(traj_lib::FlatState x_init)=0;
     virtual void planTrajectory(std::vector<globalPlan>) = 0; //ToDo : do something with global path plan
-    virtual void getNextSetpoints(double dt, std::vector<SetPoint>& sp_vec, int m) = 0;
-    virtual void getBestTrajectory(double dt, std::vector<Eigen::Vector3d>& sp_vec)=0;
+    virtual void getNextSetpoints(double dt, std::vector<traj_lib::FlatState>& sp_vec, int m) = 0;
+    virtual void getTrajectoryForViz(double dt, std::vector<Eigen::Vector3d>& sp_vec)=0;
     virtual void setGoal(Eigen::Vector3d goal)=0;
 };
 }

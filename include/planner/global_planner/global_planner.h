@@ -1,7 +1,7 @@
 #ifndef ONLINE_GLOBAL_PLANNER_H_
 #define ONLINE_GLOBAL_PLANNER_H_
 
-#include <planner/planner_common.h>
+#include <traj_lib/MavState.h>
 #include <memory>
 #include <vector>
 #include <mutex>
@@ -18,8 +18,8 @@ using globalPlan = struct globalPlan;
 class GlobalPlannerBase{
 public:
     virtual ~GlobalPlannerBase(){}
-    virtual void reset() = 0;
-    virtual void setInitPoint(pvaState p_init) = 0;
+    virtual void reset(double t) = 0;
+    virtual void setInitPoint(traj_lib::FlatState p_init) = 0;
     virtual std::vector<globalPlan> findGlobalPath() = 0;
     virtual void setGoal(Eigen::Vector3d goal)=0;
 };
@@ -31,13 +31,13 @@ public:
     };
     DummyGlobalPlanner(Param param){}
     ~DummyGlobalPlanner(){}
-    void reset(){return;}
-    void setInitPoint(pvaState x_init){x_init_ = x_init;}
+    void reset(double t){return;}
+    void setInitPoint(traj_lib::FlatState x_init){x_init_ = x_init;}
     std::vector<globalPlan> findGlobalPath(){
         std::unique_lock<std::mutex> lock(gplan_mtx_);
         std::vector<globalPlan> plans;
         globalPlan plan;
-        plan.waypoints.push_back(x_init_.position);
+        plan.waypoints.push_back(x_init_.states[0].p);
         plan.waypoints.push_back(goal_);
         plans.push_back(plan);
         return plans;
@@ -45,7 +45,7 @@ public:
     void setGoal(Eigen::Vector3d goal){goal_ = goal;}
 protected:
     Eigen::Vector3d goal_;
-    pvaState x_init_;
+    traj_lib::FlatState x_init_;
     std::mutex gplan_mtx_;
 };
 
