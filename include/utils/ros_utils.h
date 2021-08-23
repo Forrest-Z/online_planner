@@ -5,6 +5,7 @@
 #include <traj_lib/MavState.h>
 #include <mapping/octomap_handler.h>
 #include <planner/local_planner/motion_primitives_planner.h>
+#include <mapping/featuremap_handler.h>
 
 namespace online_planner{
 inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private){
@@ -12,7 +13,7 @@ inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private)
     nh_private.param("oct_res", param.oct_res, 0.1);
     nh_private.param("max_range", param.max_range, 7.0);
     nh_private.param("undersample_rate", param.undersample_rate, 4);
-    nh_private.param("print_map_update", param.verbose, false);
+    //nh_private.param("print_map_update", param.verbose, false);
     double x_min, y_min, z_min, x_max, y_max, z_max;
     nh_private.param("x_min", x_min, -1.0);
     nh_private.param("y_min", y_min, -5.0);
@@ -28,6 +29,17 @@ inline OctomapHandler::Param loadOctomapHandlerParam(ros::NodeHandle nh_private)
     param.bbxMax.y() = y_max;
     param.bbxMax.z() = z_max;
     return param;
+}
+
+inline FeatureMapHandler::Param loadFmParam(ros::NodeHandle nh_private){
+    FeatureMapHandler::Param p;
+    nh_private.param("FeatureMap/d_margin", p.d_margin, 0.5);
+    nh_private.param("FeatureMap/d_min", p.d_min, 0.1);
+    nh_private.param("FeatureMap/voxel_size", p.v_size, 0.2);
+    nh_private.param("FeatureMap/max_features_per_voxel", p.mf, 10);
+    nh_private.param("FeatureMap/save_kf_for", p.save_kf_for, 9);
+    
+
 }
 
 inline MpEvaluator::Param loadMpEvalParam(ros::NodeHandle nh_private){

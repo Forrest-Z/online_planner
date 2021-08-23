@@ -77,5 +77,8 @@ target_link_libraries(parhp_node
    ${catkin_LIBRARIES}
    ${OCTOMAP_LIBRARIES}
    ${DYNAMICEDT3D_LIBRARIES}
-   #online_planner
 )
+
+add_executable(qh_test src/test/qh_test.cpp)
+add_dependencies(qh_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(qh_test ${catkin_LIBRARIES})

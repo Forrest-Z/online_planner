@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+<node pkg="online_planner" type="qh_test" name="qh_test" output="screen">
+    <param name="qh_n" value="1000"/>
+    <param name="qh_r" value="3.0"/>
+    <param name="px" value="0.8"/>
+    <param name="py" value="-0.8"/>
+    <param name="pz" value="0.2"/>
+</node>
+
+</launch>

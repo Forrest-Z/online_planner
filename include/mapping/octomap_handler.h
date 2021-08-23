@@ -12,6 +12,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <mutex>
 #include <octomap_msgs/Octomap.h>
+#include <utils/timer.h>
 
 namespace online_planner{
 class OctomapHandler{
@@ -20,7 +21,6 @@ public:
         double oct_res;     //octomap resolution
         double max_range;   //maximum depth range;
         octomap::point3d bbxMin, bbxMax;
-        bool verbose;
         int undersample_rate;
         bool is_perspective;
     };
@@ -33,7 +33,8 @@ public:
     void insertPointcloud(const sensor_msgs::ImageConstPtr img, octomath::Pose6D T_wc_oct);
     void insertUpdate(pcl::PointCloud<pcl::PointXYZI> changed_set);
     void getOctomapMsg(octomap_msgs::Octomap& oct_msg);
-    double castRay(Eigen::Vector3d origin, Eigen::Vector3d direction, double range, bool ignore_unknown=false);
+    double castRay(Eigen::Vector3d origin, Eigen::Vector3d direction, double range, bool ignore_unknown=true);
+    void castRayGroup(Eigen::Vector3d p_query, const std::vector<Eigen::Vector3d>& points, std::vector<bool>& is_occluded, double d_margin, bool ignore_unknown=true);
     void setDepthcamModel(sensor_msgs::CameraInfo cam_info){
         std::unique_lock<std::mutex> lock(sub_ot_mtx_);
         if(depthcam_model_set) return;
@@ -44,6 +45,7 @@ public:
         std::unique_lock<std::mutex> lock(sub_ot_mtx_);
         return depthcam_model_set;
     }
+    void printTimers(bool, bool);
 protected:
     //under pub_ot_mtx_
     std::unique_ptr<octomap::OcTree> pub_ot_;  
@@ -54,15 +56,15 @@ protected:
     bool depthcam_model_set;
     image_geometry::PinholeCameraModel depthcam_model;
     
-    //loaded from Param
+    //loaded from Param(read only afterwards)
     double oct_res;     //octomap resolution
     double max_range;   //maximum depth range
     int undersample_rate;
     octomap::point3d bbxMin, bbxMax;  
-    bool verbose;
     bool is_perspective;
 
     mutable std::mutex pub_ot_mtx_, sub_ot_mtx_;
+    Timer castray_timer, insert_timer, update_timer;
 };
 }//namespace online_planner
 

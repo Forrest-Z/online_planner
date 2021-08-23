@@ -7,7 +7,7 @@ using namespace std;
 
 using namespace transform_utils;
 
-BaseWrapper::BaseWrapper():transform_stabilized(false){
+BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(nullptr){
     nh_default_ = ros::NodeHandle("~"); //private
     nh_custom_ = ros::NodeHandle("~");
     nh_custom_.setCallbackQueue(&custom_queue);
@@ -57,6 +57,7 @@ BaseWrapper::BaseWrapper():transform_stabilized(false){
         n_bound = static_cast<int>(takeoff_height / takeoff_speed / dt_control) + 1;
         n_hover = static_cast<int>(1.0 / dt_control);
         vel_cmd_.twist.linear.x = vel_cmd_.twist.linear.y = 0.0;
+        control_stop_client = nh_custom_.serviceClient<std_srvs::Trigger>("/geometric_controller/stop");
     }
     mavros_okay = !is_mavros;
     status_ = Status::ODOM_NOT_SET;
@@ -84,6 +85,7 @@ void BaseWrapper::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
         ROS_WARN("Got odometry info");
     }
     curr_odom = *odom_msg;
+    t_last_odom_input = curr_odom.header.stamp;
     auto pos = curr_odom.pose.pose.position;
     auto ori = curr_odom.pose.pose.orientation;
     if(is_odom_ned){
@@ -162,6 +164,8 @@ void BaseWrapper::airsimTakeoffSingleIter(){
 
 void BaseWrapper::airsimHoverSingleIter(){
     if(n_executed < n_hover){
+        vel_cmd_.twist.linear.x = 0.0;
+        vel_cmd_.twist.linear.y = 0.0;
         vel_cmd_.twist.linear.z = 0.0;
         airsim_vel_pub.publish(vel_cmd_);
         ++n_executed;
@@ -179,30 +183,28 @@ BaseWrapper::~BaseWrapper(){
     custom_spinner.reset();
 }
 
-traj_lib::FlatState BaseWrapper::getInitState(){
-    unique_lock<mutex> lock(state_mtx_);
-    traj_lib::FlatState flat_state = curr_flat_state;
-    lock.unlock();
-    unique_lock<mutex> lock2(traj_path_mtx_);
-    if(current_best_trajectory.size() == 0) return flat_state; 
-    else{
-        auto next_sp = current_best_trajectory[0].states;
-        flat_state.states[0].p = 0.8*next_sp[0].p + 0.2*flat_state.states[0].p;
-        flat_state.states[1].p = 0.8*next_sp[1].p + 0.2*flat_state.states[1].p;
-        flat_state.states[2].p = next_sp[2].p;
-        flat_state.states[0].yaw = 0.8*next_sp[0].yaw + 0.2*flat_state.states[0].yaw;
-    }
-    lock2.unlock();
-}
-
-mavros_msgs::PositionTarget BaseWrapper::flatStateToPt(const traj_lib::FlatState state){
+mavros_msgs::PositionTarget BaseWrapper::SetPointToPt(const traj_lib::SetPoint& state){
     mavros_msgs::PositionTarget pt;
     pt.header.frame_id = world_frame_name;
     pt.type_mask = IG_YAWR;
-    pt.position = transform_utils::eigen_to_geovec<geometry_msgs::Point>(state.states[0].p);
-    pt.velocity = transform_utils::eigen_to_geovec<geometry_msgs::Vector3>(state.states[1].p);
-    pt.acceleration_or_force = transform_utils::eigen_to_geovec<geometry_msgs::Vector3>(state.states[2].p);
-    pt.yaw = state.states[0].yaw;
+    pt.position = transform_utils::eigen_to_geovec<geometry_msgs::Point>(state.p_yaw.p);
+    pt.velocity = transform_utils::eigen_to_geovec<geometry_msgs::Vector3>(state.v_yawr.p);
+    pt.acceleration_or_force = transform_utils::eigen_to_geovec<geometry_msgs::Vector3>(state.a);
+    pt.yaw = state.p_yaw.yaw;
+    pt.header.stamp = reference_time + ros::Duration(state.t);
+    pt.header.frame_id = world_frame_name;
     return pt;
+}
+
+void BaseWrapper::checkGoalReached(){
+    unique_lock<mutex> lock(state_mtx_);
+    Eigen::Vector3d curr_p = curr_state.p;
+    Eigen::Vector3d goal = goal_o;
+    lock.unlock();
+    if((curr_p - goal).norm() < 0.4){
+        control_stop_client.call(trig);
+        status_ = Status::REACHED_GOAL;
+    }
+    return;
 }
 }

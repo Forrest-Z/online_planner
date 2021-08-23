@@ -40,17 +40,19 @@ void MpPlanner::planTrajectory(std::vector<globalPlan>){
     generateMps();
 }
 
-void MpPlanner::getNextSetpoints(double dt, std::vector<traj_lib::FlatState>& sp_vec, int m){
+void MpPlanner::getNextSetpoints(double t_now, double dt, std::vector<traj_lib::SetPoint>& sp_vec, int m){
     sp_vec.clear();
     auto best_mp = findBestMp();
     double t_start, t_end;
-    best_mp.getTimeSpan(t_start, t_end);
+    best_mp->getTimeSpan(t_start, t_end);
     int i=0;
-    for(double t = t_start + dt; t_start < t_end, i < m; t_start += dt){
-        traj_lib::FlatState sp = getState(&best_mp, t);
-        sp.pos_order = 2;
-        sp.yaw_order = 0;
-        sp_vec.push_back(sp);
+    for(double t = t_now + dt; t_start < t_end, i < m; t_start += dt){
+        traj_lib::FlatState state = getState(best_mp, t);
+        traj_lib::SetPoint sp;
+        sp.p_yaw = state.states[0];
+        sp.v_yawr = state.states[1];
+        sp.a = state.states[2].p;
+        sp.t = t;
         ++i;
     }
     return;
@@ -60,9 +62,9 @@ void MpPlanner::getNextSetpoints(double dt, std::vector<traj_lib::FlatState>& sp
 void MpPlanner::getTrajectoryForViz(double dt, std::vector<Eigen::Vector3d>& pos_vec){
     auto best_mp = findBestMp();
     double t_start, t_end;
-    best_mp.getTimeSpan(t_start, t_end);
+    best_mp->getTimeSpan(t_start, t_end);
     for(double t = t_start; t_start < t_end; t_start += dt){
-        Eigen::Vector3d pos = best_mp(t).p;
+        Eigen::Vector3d pos = (*best_mp)(t).p;
         pos_vec.push_back(pos);
     }
     return;
@@ -137,6 +139,10 @@ void MpPlanner::generateMps(){
 }
 
 traj_lib::FlatState MpPlanner::getState(MinJerkPolyTraj* mp, double t){
+    if(mp == nullptr){
+        std::cerr<<"Null pointer passed MpPlanner::getState(Perhaps Dynamic cast failed)"<<std::endl;
+        exit(-1);
+    }
     traj_lib::FlatState f;
     f.pos_order = 2;
     f.yaw_order = 0;
@@ -150,8 +156,8 @@ traj_lib::FlatState MpPlanner::getState(MinJerkPolyTraj* mp, double t){
     }
 }
 
-MinJerkPolyTraj MpPlanner::findBestMp(){
-    if(found_best) return mp_lib[best_idx];
+MinJerkPolyTraj* MpPlanner::findBestMp(){
+    if(found_best) return &mp_lib[best_idx];
     double min_cost = 1e10;
     best_idx = 0;
     for(int idx = 0; idx < num_mps; ++idx){
@@ -162,7 +168,14 @@ MinJerkPolyTraj MpPlanner::findBestMp(){
         }
     }
     found_best = true;
-    return mp_lib[best_idx];
+    return &mp_lib[best_idx];
+}
+
+void MpEvaluator::setMapPtrs(std::shared_ptr<OctomapHandler> ot_handle, std::shared_ptr<FeatureMapHandler> fm_handle){
+    if(ot_handle.get() != nullptr) ot_handle_ = ot_handle;
+    else std::cerr<<"Motion primitives planner -> octomap not set properly!"<<std::endl;
+    if(fm_handle.get() != nullptr) fm_handle_ = fm_handle;
+    else std::cerr<<"Motion primitives planner -> fm handler not set properly!"<<std::endl;
 }
 
 void MpEvaluator::setInitState(traj_lib::FlatState x_init){

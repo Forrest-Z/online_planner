@@ -2,14 +2,16 @@
 #include <utils/ros_utils.h>
 
 using namespace std;
-
+using namespace traj_lib;
 //extern shared_ptr<ros::AsyncSpinner> custom_spinner;
 
 namespace online_planner{
 PaRhpWrapper::PaRhpWrapper(){
     mp_planner_ = new MpPlanner(loadMpPlannerParam(nh_custom_));
     ot_handle_ = std::make_shared<OctomapHandler>(loadOctomapHandlerParam(nh_custom_));
-    mp_planner_->setOctomapPtr(ot_handle_);
+    fm_handle_ = std::make_shared<FeatureMapHandler>(loadFmParam(nh_custom_));
+    fm_handle_->setOctHandle(ot_handle_);
+    mp_planner_->setMapPtrs(ot_handle_, fm_handle_);
 
     //params
     Eigen::Vector3d t_bc; Eigen::Quaterniond q_bc;
@@ -21,6 +23,10 @@ PaRhpWrapper::PaRhpWrapper(){
     q_bc.z() = nh_default_.param("T_bc_qz", 0.5);
     q_bc.w() = nh_default_.param("T_bc_qw", -0.5);
     T_bc = transform_utils::utils::from_vec3_quat(t_bc, q_bc);
+
+    //verbosity
+    nh_default_.param("ot_verbose", ot_verbose_, true);
+    nh_default_.param("fm_verbose", fm_verbose_, true);
 
     //define actors in nh_default_
     depth_img_sub = nh_default_.subscribe("/camera/depth/image_raw", 1, &PaRhpWrapper::depthImgCallback, this);
@@ -70,6 +76,7 @@ void PaRhpWrapper::airsimGlobalCallback(const ros::TimerEvent& e){
     switch(status_){
         case Status::ODOM_NOT_SET:
             ROS_WARN_ONCE("Odom not set. waiting for odometry info...");
+            airsimVioInitSingleIter();
             break;
         case Status::ODOM_INIT:
             airsimVioInitSingleIter();
@@ -78,37 +85,69 @@ void PaRhpWrapper::airsimGlobalCallback(const ros::TimerEvent& e){
             airsimTakeoffSingleIter();
             break;
         case Status::INIT_HOVER:{
-            mp_planner_->setGoal(goal_o);
+            if(transform_stabilized) mp_planner_->setGoal(goal_o);
             airsimHoverSingleIter();
             break;
         }
         case Status::FLIGHT:
             if(!local_plan_timer.hasStarted()) local_plan_timer.start();
+            checkGoalReached();
             break;
         default:
             if(local_plan_timer.hasStarted()) local_plan_timer.stop();
+            vel_cmd_.twist.linear.x = 0.0;
+            vel_cmd_.twist.linear.y = 0.0;
+            vel_cmd_.twist.linear.z = 0.0;
+            airsim_vel_pub.publish(vel_cmd_);
             break;
     }
     return;
 }
 
 void PaRhpWrapper::localPlannerCallback(const ros::TimerEvent& e){
-    ros::Time now = ros::Time::now();
-    mp_planner_->reset((now - reference_time).toSec());
-    mp_planner_->setInitState(getInitState());
+    vector<SetPoint> sp_vec;
+    ros::Time t_preplan = ros::Time::now();
+    mp_planner_->reset((t_preplan - reference_time).toSec());
+    mp_planner_->setInitState(getInitState()); //current best trajectory 
     mp_planner_->planTrajectory(vector<globalPlan>());
-    mp_planner_->findBestMp();
+    mp_planner_-> findBestMp();
     unique_lock<mutex> lock2(traj_path_mtx_);
-    mp_planner_->getNextSetpoints(dt_control, current_best_trajectory, sp_per_plan);
+    current_best_trajectory = mp_planner_-> findBestMp();
+    double t_now = (ros::Time::now() - reference_time).toSec(); //time after planning
+    mp_planner_->getNextSetpoints(t_now, dt_control, sp_vec, sp_per_plan);
     if(!is_mavros){
+        size_t sp_num = sp_vec.size();
         airsim_controller::PositionTargets pts;
-        for(int i=0; i < sp_per_plan; ++i){
-            pts.setpoints[i] = flatStateToPt(current_best_trajectory[i]);
+        pts.setpoints.resize(sp_num);
+        for(size_t i = 0; i < sp_num; ++i){
+            pts.setpoints[i] = SetPointToPt(sp_vec[i]);
         }
         sp_pub.publish(pts);
     }
     else{
         //what?
+    }
+    lock2.unlock();
+}
+
+FlatState PaRhpWrapper::getInitState(){
+    unique_lock<mutex> lock(state_mtx_);
+    traj_lib::FlatState flat_state = curr_flat_state;
+    lock.unlock();
+    //modify flat_state based on constant velocity
+    ros::Time now = ros::Time::now();
+    double dt_delay = (now - t_last_odom_input).toSec();
+    flat_state.states[0].p += flat_state.states[1].p * dt_delay; 
+    unique_lock<mutex> lock2(traj_path_mtx_);
+    if(current_best_trajectory == nullptr) return flat_state; 
+    else{
+        //compensate for time delay
+        auto next_sp = mp_planner_->
+            getState(dynamic_cast<MinJerkPolyTraj*>(current_best_trajectory), (now - reference_time).toSec()+0.1);
+        flat_state.states[0].p = 0.5*next_sp.states[0].p + 0.5*flat_state.states[0].p;
+        flat_state.states[1].p = 0.5*next_sp.states[1].p + 0.5*flat_state.states[1].p;
+        flat_state.states[2].p = next_sp.states[2].p;
+        flat_state.states[0].yaw = 0.5*next_sp.states[0].yaw + 0.5*flat_state.states[0].yaw;
     }
     lock2.unlock();
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+<node pkg="online_planner" type="stdmap_test" name="stdmap_test" output="screen">
+    <param name="n" value="1000"/>
+    <param name="nx" value="100"/>
+    <param name="ny" value="100"/>
+    <param name="nz" value="20"/>
+</node>
+
+</launch>

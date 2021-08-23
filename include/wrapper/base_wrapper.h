@@ -15,8 +15,10 @@
 #include <transform_utils/transform_utils.h>
 #include <airsim_controller/PositionTargets.h>
 #include <airsim_ros_pkgs/VelCmd.h>
+#include <traj_lib/MavTrajBase.h>
 #include <string>
 #include <mutex>
+#include <std_srvs/Trigger.h>
 
 #define IG_P 7 // 1+2+4
 #define IG_V 56 // 8+16+32
@@ -66,12 +68,12 @@ protected:
     void odomCallback(const nav_msgs::OdometryConstPtr& msg);
 
     //client
-    ros::ServiceClient arming_client, set_mode_client;
+    ros::ServiceClient arming_client, set_mode_client, control_stop_client;
 
     int n_bound, n_hover;
     int n_executed;
     
-    //variables
+    //mission, frame related variables
     transform_utils::SE3 T_ib_init; // initial pose in  "interface frame"(user defined frame)
     Eigen::Vector3d goal_i, goal_o; //goal position in interface frame/odom frame
     transform_utils::SE3 T_oi;      // odom frame to interface frame
@@ -83,6 +85,10 @@ protected:
     nav_msgs::Odometry curr_odom;
     traj_lib::MavState curr_state;
     traj_lib::FlatState curr_flat_state;
+    ros::Time t_last_odom_input;
+
+    std_srvs::Trigger trig;
+
     //status
     Status status_; //only updated from globalplanthread
     bool mavros_okay, transform_stabilized;
@@ -102,11 +108,12 @@ protected:
 
     //trajectory & path information
     std::mutex traj_path_mtx_;
-    std::vector<traj_lib::FlatState> current_best_trajectory; //whole trajectory
+    traj_lib::MavTrajBase* current_best_trajectory; //whole trajectory
     std::vector<Eigen::Vector4d> selected_path; //x, y, z path
 
-    traj_lib::FlatState getInitState();
-    mavros_msgs::PositionTarget flatStateToPt(const traj_lib::FlatState state);
+    virtual traj_lib::FlatState getInitState() = 0;
+    mavros_msgs::PositionTarget SetPointToPt(const traj_lib::SetPoint& state);
+    void checkGoalReached();
 };
 
 }
