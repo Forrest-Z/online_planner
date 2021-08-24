@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
     pcl_conversions
     traj_lib
     airsim_controller
+    vins_vio_mod
 )
 
 
@@ -55,30 +56,35 @@ include_directories(
 )
 
 ## Declare a C++ library
-#add_library(online_planner
-#   src/local_planner/motion_primitives_planner.cpp
-#   src/mapping/octomap_handler.cpp
-#   src/wrapper/base_wrapper.cpp
-#)
-
-#add_dependencies(online_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_library(${PROJECT_NAME} SHARED
+   src/local_planner/motion_primitives_planner.cpp
+   src/mapping/octomap_handler.cpp
+   src/mapping/featuremap_handler.cpp
+)
+add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME} ${EIGEN3_LIBS})
 
 ## Declare a C++ executable
-## With catkin_make all packages are built within a single CMake context
-## The recommended prefix ensures that target names across packages don't collide
-add_executable(parhp_node src/local_planner/motion_primitives_planner.cpp 
-              src/mapping/octomap_handler.cpp
-              src/wrapper/base_wrapper.cpp src/wrapper/parhp_wrapper.cpp)
-
-add_dependencies(parhp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-
-## Specify libraries to link a library or executable target against
+add_executable(parhp_node src/wrapper/parhp_wrapper.cpp src/wrapper/base_wrapper.cpp)
+add_dependencies(parhp_node ${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(parhp_node
-   ${catkin_LIBRARIES}
-   ${OCTOMAP_LIBRARIES}
-   ${DYNAMICEDT3D_LIBRARIES}
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${OCTOMAP_LIBRARIES}
+  ${DYNAMICEDT3D_LIBRARIES}
 )
 
+add_executable(maptest_node src/wrapper/maptest_wrapper.cpp src/wrapper/base_wrapper.cpp)
+add_dependencies(maptest_node ${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(maptest_node
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${OCTOMAP_LIBRARIES}
+  ${DYNAMICEDT3D_LIBRARIES}
+)
+
+
+#### tests
 add_executable(qh_test src/test/qh_test.cpp)
 add_dependencies(qh_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(qh_test ${catkin_LIBRARIES})

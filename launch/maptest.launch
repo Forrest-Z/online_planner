@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+
+<node pkg="online_planner" type="maptest_node" name="maptest_node" output="screen">
+    <param name="qh_n" value="1000"/>
+    
+</node>
+
+</launch>

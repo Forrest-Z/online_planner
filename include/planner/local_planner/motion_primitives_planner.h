@@ -99,7 +99,7 @@ public:
         mp_eval_->setMapPtrs(ot_handle, fm_handle);
     }
     MpEvaluator* getMpEvalPtr(){return mp_eval_.get();}
-    traj_lib::FlatState getState(traj_lib::MinJerkPolyTraj* mp, double t);
+    traj_lib::FlatState getFlatState(traj_lib::MinJerkPolyTraj* mp, double t);
     friend class MpEvaluator;
 private:
     //member functions

@@ -43,6 +43,10 @@ enum class Status{
     //virtual int run() = 0;
     BaseWrapper();
     ~BaseWrapper();
+    //state getters
+    traj_lib::FlatState getCurrFlatState();
+    traj_lib::MavState getCurrState();
+    bool transformStabilized();
 protected:
     ros::NodeHandle nh_default_; // handles heavy message processing.
     ros::NodeHandle nh_custom_; // handles more lightweight, high priority message / services 
@@ -105,6 +109,7 @@ protected:
     double takeoff_height, takeoff_speed; //
     
     ros::Time reference_time;   //time
+    double getSimTime(ros::Time t){return (t - reference_time).toSec();}
 
     //trajectory & path information
     std::mutex traj_path_mtx_;

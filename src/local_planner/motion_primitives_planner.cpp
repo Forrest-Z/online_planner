@@ -46,8 +46,8 @@ void MpPlanner::getNextSetpoints(double t_now, double dt, std::vector<traj_lib::
     double t_start, t_end;
     best_mp->getTimeSpan(t_start, t_end);
     int i=0;
-    for(double t = t_now + dt; t_start < t_end, i < m; t_start += dt){
-        traj_lib::FlatState state = getState(best_mp, t);
+    for(double t = t_now + dt; t < t_end, i < m; t += dt){
+        traj_lib::FlatState state = getFlatState(best_mp, t);
         traj_lib::SetPoint sp;
         sp.p_yaw = state.states[0];
         sp.v_yawr = state.states[1];
@@ -63,7 +63,7 @@ void MpPlanner::getTrajectoryForViz(double dt, std::vector<Eigen::Vector3d>& pos
     auto best_mp = findBestMp();
     double t_start, t_end;
     best_mp->getTimeSpan(t_start, t_end);
-    for(double t = t_start; t_start < t_end; t_start += dt){
+    for(double t = t_start; t < t_end; t += dt){
         Eigen::Vector3d pos = (*best_mp)(t).p;
         pos_vec.push_back(pos);
     }
@@ -138,22 +138,12 @@ void MpPlanner::generateMps(){
     }
 }
 
-traj_lib::FlatState MpPlanner::getState(MinJerkPolyTraj* mp, double t){
+traj_lib::FlatState MpPlanner::getFlatState(MinJerkPolyTraj* mp, double t){
     if(mp == nullptr){
-        std::cerr<<"Null pointer passed MpPlanner::getState(Perhaps Dynamic cast failed)"<<std::endl;
+        std::cerr<<"Null pointer passed MpPlanner::getFlatState(Perhaps Dynamic cast failed)"<<std::endl;
         exit(-1);
     }
-    traj_lib::FlatState f;
-    f.pos_order = 2;
-    f.yaw_order = 0;
-    f.states.resize(3);
-    f.states[0].p = (*mp)(t).p;
-    f.states[1].p = (*mp)(t,1).p;
-    f.states[2].p = (*mp)(t,2).p;
-    f.states[0].yaw = atan2(f.states[1].p[1], f.states[1].p[0]);
-    if(f.states[1].p.norm() < 0.01){
-        f.states[0].yaw = x_init_.states[0].yaw; // velocity tracking yaw might be too noisy for small velocity
-    }
+    return mp->getFlatState(t, x_init_.states[0].yaw);
 }
 
 MinJerkPolyTraj* MpPlanner::findBestMp(){
@@ -251,7 +241,7 @@ double MpEvaluator::computeGoalProxCost(MinJerkPolyTraj* mp){
 double MpEvaluator::computeEndpointCost(MinJerkPolyTraj* mp){
     double t0, tf;
     mp->getTimeSpan(t0, tf);
-    traj_lib::FlatState x_end = mp_planner_->getState(mp, tf);
+    traj_lib::FlatState x_end = mp_planner_->getFlatState(mp, tf);
     auto lookahead_vec = mp_planner_->computeMpEndpoints(x_end);
     double L = mp_planner_->L;
     double mean_ray = 0.0;

@@ -1,12 +1,12 @@
-#ifndef MP_AGNOSTIC_WRAPPER_H_
-#define MP_AGNOSTIC_WRAPPER_H_
+#ifndef PARHP_WRAPPER_H_
+#define PARHP_WRAPPER_H_
 
 #include <planner/local_planner/motion_primitives_planner.h>
 #include <mapping/octomap_handler.h>
 #include <wrapper/base_wrapper.h>
 #include <depth2pc/depth_to_pc.h>
 #include <memory>
-#include <utils/featuremap_types.h>
+#include <utils/timer.h>
 #include <mapping/featuremap_handler.h>
 #include <vins_vio_mod/KeyframeInfo.h>
 
@@ -43,6 +43,10 @@ private:
     void visualizeCallback(const ros::TimerEvent& e); 
 
     virtual traj_lib::FlatState getInitState() override;
+    
+    //timer
+    Timer tictoc_localplanning;
+    std::mutex t_mtx_;
 };
 }
 

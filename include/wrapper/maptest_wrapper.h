@@ -13,7 +13,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
     MaptestWrapper();
-    ~MaptestWrapper();
+    ~MaptestWrapper(){}
 
 protected:
     std::shared_ptr<OctomapHandler> ot_handle_;
@@ -29,14 +29,26 @@ protected:
     void depthcamInfoCallback(const sensor_msgs::CameraInfoConstPtr& info_msg);
     void kfInfoCallback(const vins_vio_mod::KeyframeInfoConstPtr& kf_msg);
 
-    //loaded from ros
-    transform_utils::SE3 T_bc;    
+    //loaded from rosparam or loaded at construction
+    transform_utils::SE3 T_bc;
+    double t_plan_delay;
+    double v_des;
+    Eigen::MatrixX3d M;    
+    std::pair<double, double> fov_rads;
+
+    //planning related. shared under traj_path_mtx_;
+    traj_lib::MinJerkPolyTraj trajectory;
+    double last_valid_yaw;
     
     //timers
+    ros::Timer global_plan_timer;
     ros::Timer local_plan_timer;
     ros::Timer visualize_timer;
-    
+    void airsimGlobalCallback(const ros::TimerEvent& e); //for airsim simulation
+    void localPlannerCallback(const ros::TimerEvent& e); 
+    void visualizeCallback(const ros::TimerEvent& e);
 
     virtual traj_lib::FlatState getInitState() override;
+    void computePlan();
 };
 }

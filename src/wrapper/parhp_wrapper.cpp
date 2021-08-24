@@ -12,6 +12,7 @@ PaRhpWrapper::PaRhpWrapper(){
     fm_handle_ = std::make_shared<FeatureMapHandler>(loadFmParam(nh_custom_));
     fm_handle_->setOctHandle(ot_handle_);
     mp_planner_->setMapPtrs(ot_handle_, fm_handle_);
+    tictoc_localplanning = Timer(string("- Local planning timer(per plan)"));
 
     //params
     Eigen::Vector3d t_bc; Eigen::Quaterniond q_bc;
@@ -40,7 +41,7 @@ PaRhpWrapper::PaRhpWrapper(){
     if(is_mavros) global_plan_timer = nh_custom_.createTimer(ros::Duration(dt_global_planning), &PaRhpWrapper::mavrosGlobalCallback, this);
     else global_plan_timer = nh_custom_.createTimer(ros::Duration(dt_global_planning), &PaRhpWrapper::airsimGlobalCallback, this);
     //local plan thread manually starts after takeoff
-    local_plan_timer = nh_custom_.createTimer(ros::Duration(dt_local_planning), &PaRhpWrapper::localPlannerCallback, this, false);
+    local_plan_timer = nh_custom_.createTimer(ros::Duration(dt_local_planning), &PaRhpWrapper::localPlannerCallback, this, false, false);
     
     custom_spinner->start();
 }
@@ -51,11 +52,9 @@ PaRhpWrapper::~PaRhpWrapper(){
 
 void PaRhpWrapper::depthImgCallback(const sensor_msgs::ImageConstPtr& img_msg){
     if(!(ot_handle_->isCamModelSet())) return;
-    unique_lock<mutex> lock2(state_mtx_);
-    if(!transform_stabilized) return;
-    geometry_msgs::Pose pose = curr_odom.pose.pose;
-    lock2.unlock();
-    transform_utils::SE3 T_wb = transform_utils::utils::from_vec3_quat(pose.position, pose.orientation);
+    if(!transformStabilized()) return;
+    MavState mav_state = getCurrState();
+    transform_utils::SE3 T_wb = transform_utils::from_Rp(mav_state.R, mav_state.p);
     transform_utils::SE3 T_wc = T_wb * T_bc;
     octomath::Pose6D T_wc_oct = SE3tooctPose(T_wc);
     ot_handle_->insertPointcloud(img_msg, T_wc_oct);
@@ -105,10 +104,12 @@ void PaRhpWrapper::airsimGlobalCallback(const ros::TimerEvent& e){
 }
 
 void PaRhpWrapper::localPlannerCallback(const ros::TimerEvent& e){
+    unique_lock<mutex> lock_(t_mtx_);
+    tictoc_localplanning.tic();
     vector<SetPoint> sp_vec;
     ros::Time t_preplan = ros::Time::now();
     mp_planner_->reset((t_preplan - reference_time).toSec());
-    mp_planner_->setInitState(getInitState()); //current best trajectory 
+    mp_planner_->setInitState(getInitState()); //current best trajectory. gets state_mtx_ inside
     mp_planner_->planTrajectory(vector<globalPlan>());
     mp_planner_-> findBestMp();
     unique_lock<mutex> lock2(traj_path_mtx_);
@@ -128,12 +129,12 @@ void PaRhpWrapper::localPlannerCallback(const ros::TimerEvent& e){
         //what?
     }
     lock2.unlock();
+    tictoc_localplanning.toc();
+    lock_.unlock();
 }
 
 FlatState PaRhpWrapper::getInitState(){
-    unique_lock<mutex> lock(state_mtx_);
-    traj_lib::FlatState flat_state = curr_flat_state;
-    lock.unlock();
+    traj_lib::FlatState flat_state = getCurrFlatState();
     //modify flat_state based on constant velocity
     ros::Time now = ros::Time::now();
     double dt_delay = (now - t_last_odom_input).toSec();
@@ -143,7 +144,7 @@ FlatState PaRhpWrapper::getInitState(){
     else{
         //compensate for time delay
         auto next_sp = mp_planner_->
-            getState(dynamic_cast<MinJerkPolyTraj*>(current_best_trajectory), (now - reference_time).toSec()+0.1);
+            getFlatState(dynamic_cast<MinJerkPolyTraj*>(current_best_trajectory), (now - reference_time).toSec()+0.1);
         flat_state.states[0].p = 0.5*next_sp.states[0].p + 0.5*flat_state.states[0].p;
         flat_state.states[1].p = 0.5*next_sp.states[1].p + 0.5*flat_state.states[1].p;
         flat_state.states[2].p = next_sp.states[2].p;
@@ -154,6 +155,13 @@ FlatState PaRhpWrapper::getInitState(){
 
 void PaRhpWrapper::visualizeCallback(const ros::TimerEvent& e){
     //first, octomap
+    if(ot_verbose_) ot_handle_->printTimers(true, true); // ot->lock_sub, lock_pub
+    if(fm_verbose_) fm_handle_->printTimers(true, true); // fm->lock
+    unique_lock<mutex> lock_(t_mtx_, defer_lock); //t_mtx_ lock
+    if(lock_.try_lock()){
+        tictoc_localplanning.print(false, true);
+        lock_.unlock();
+    }
     octomap_msgs::Octomap oct_msg;
     oct_msg.header.stamp = ros::Time::now();
     oct_msg.header.frame_id = world_frame_name;

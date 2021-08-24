@@ -6,7 +6,7 @@ using namespace std;
 namespace online_planner{
 FeatureMapHandler::FeatureMapHandler(FeatureMapHandler::Param p):
 d_margin_(p.d_margin), d_min_(p.d_min), voxel_size_(p.v_size), max_features_per_voxel_(p.mf), save_kf_for_(p.save_kf_for),
-update_timer_(string("- Feature Map Update timer(per keyframe)")), 
+n_features(0), update_timer_(string("- Feature Map Update timer(per keyframe)")), 
 query_timer_(string("- Visibility Query timer(per pose)")){}
 
 void FeatureMapHandler::setOctHandle(std::shared_ptr<OctomapHandler> oct_handle){
@@ -14,17 +14,31 @@ void FeatureMapHandler::setOctHandle(std::shared_ptr<OctomapHandler> oct_handle)
 }
 
 void FeatureMapHandler::printTimers(bool total, bool avg){
+    unique_lock<mutex> f_lock(featuremap_mtx_);
     cout<<"***FeatureMapHandler Timer Reports***"<<endl;
+    cout<<"# of features in current feature map : "<< n_features<<endl;
     update_timer_.print(total, avg);
     query_timer_.print(total, avg);
+    f_lock.unlock();
+}
+
+void FeatureMapHandler::getFeatureMap(FeatureVoxelMap::type* f){
+    unique_lock<mutex> f_lock(featuremap_mtx_);
+    f = &feature_voxel_map;
+    return;
+}
+
+int FeatureMapHandler::getNfeatures() const{
+    unique_lock<mutex> f_lock(featuremap_mtx_);
+    return n_features;
 }
 
 //Assume ascending order of new features detected
 void FeatureMapHandler::updateKfInfo(KFInfo& kf_info){
-    unique_lock<mutex> lock(featuremap_mtx_);
+    unique_lock<mutex> f_lock(featuremap_mtx_);
     update_timer_.tic();
     removeOld();
-    sort(kf_info.features.begin(), kf_info.features.end(), compareFeatureId);
+    sort(kf_info.features.begin(), kf_info.features.end(), compareFpair);
     //compare kf info with last one and find new kf_info
     int idx_prev = 0;
     int last_kf_info_size = last_kf_info.features.size();
@@ -41,7 +55,7 @@ void FeatureMapHandler::updateKfInfo(KFInfo& kf_info){
             IdxType prev_voxel_idx, new_voxel_idx;
             getVoxelIdFromPos(f_it->second, new_voxel_idx);
             getVoxelIdFromPos(last_kf_info.features[idx_prev].second, prev_voxel_idx);
-            if(new_voxel_idx == prev_voxel_idx){
+            if(new_voxel_idx == prev_voxel_idx){ //only update pos
                 for(auto vmap_it = feature_voxel_map[prev_voxel_idx].features.begin(); 
                     vmap_it != feature_voxel_map[prev_voxel_idx].features.end(); ++vmap_it){
                     if(vmap_it->id == f_it->first){ //found the id match
@@ -50,6 +64,7 @@ void FeatureMapHandler::updateKfInfo(KFInfo& kf_info){
                     }
                     else if((vmap_it->pos - f_it->second).norm() < 0.05){ // too close : abandone
                         vmap_it = feature_voxel_map[prev_voxel_idx].features.erase(vmap_it);
+                        --n_features;
                     }
                 }
             }
@@ -65,6 +80,7 @@ void FeatureMapHandler::updateKfInfo(KFInfo& kf_info){
                     vmap_it != feature_voxel_map[new_voxel_idx].features.end(); ++vmap_it){
                     if((vmap_it->pos - f_it->second).norm() < 0.05){ // too close : abandone
                         vmap_it = feature_voxel_map[new_voxel_idx].features.erase(vmap_it);
+                        --n_features;
                     }
                 }
                 feature_voxel_map[new_voxel_idx].features.emplace_back(f_it->first, f_it->second, kf_info.kf_id);
@@ -72,19 +88,22 @@ void FeatureMapHandler::updateKfInfo(KFInfo& kf_info){
         }
         else{ //new features
             IdxType voxel_idx;
+            ++n_features;
             getVoxelIdFromPos(f_it->second, voxel_idx);
             for(auto vmap_it = feature_voxel_map[voxel_idx].features.begin(); 
                     vmap_it != feature_voxel_map[voxel_idx].features.end(); ++vmap_it){
                 if((vmap_it->pos - f_it->second).norm() < 0.05){ // too close : abandone
                         vmap_it = feature_voxel_map[voxel_idx].features.erase(vmap_it);
+                        --n_features;
                 }
             }
             feature_voxel_map[voxel_idx].features.emplace_back(f_it->first, f_it->second, kf_info.kf_id);
+            ++n_features;
         }
     }
     last_kf_info = kf_info;
     update_timer_.toc();
-    lock.unlock();
+    f_lock.unlock();
 }
 
 // note: only call this inside updateKFInfo, since this function does not acquire additional lock
@@ -92,8 +111,10 @@ void FeatureMapHandler::removeOld(){
     int old_kf_id = last_kf_info.kf_id - save_kf_for_;
     for(auto vox_it = feature_voxel_map.begin(); vox_it != feature_voxel_map.end(); ++vox_it){
         for(auto f_it = vox_it->second.features.begin(); f_it != vox_it->second.features.end(); ++f_it){
-            if(f_it->last_kf_id <= old_kf_id || vox_it->second.features.size() >= max_features_per_voxel_)
+            if(f_it->last_kf_id <= old_kf_id || vox_it->second.features.size() >= max_features_per_voxel_){
                 f_it = vox_it->second.features.erase(f_it);
+                --n_features;
+            }
            //The way of inserting features into each voxel assures that the features at the front are older
            else break;
        }
@@ -110,7 +131,7 @@ void FeatureMapHandler::queryVisible(transform_utils::SE3 T_wc, vector<FeatureIn
     Eigen::Matrix3d R_cw = T_wc.rotation().transpose();
     Eigen::Vector3d t_wc = T_wc.translation();
     Eigen::Vector3d t_cw = -R_cw*t_wc;
-    unique_lock<mutex> lock(featuremap_mtx_);
+    unique_lock<mutex> f_lock(featuremap_mtx_);
     query_timer_.tic();
     for(auto vox_it = feature_voxel_map.begin(); vox_it != feature_voxel_map.end(); ++vox_it){
         for(auto f_it = vox_it->second.features.begin(); f_it != vox_it->second.features.end(); ++f_it){
@@ -128,7 +149,7 @@ void FeatureMapHandler::queryVisible(transform_utils::SE3 T_wc, vector<FeatureIn
         if(!is_occluded[idx]) vec.push_back(in_fov[idx]);
     }
     query_timer_.toc();
-    lock.unlock();
+    f_lock.unlock();
     return;
 }
 

@@ -1,11 +1,11 @@
 #include <wrapper/base_wrapper.h>
 #include <memory>
 
-namespace online_planner{
-
 using namespace std;
-
+using namespace traj_lib;
 using namespace transform_utils;
+
+namespace online_planner{
 
 BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(nullptr){
     nh_default_ = ros::NodeHandle("~"); //private
@@ -65,6 +65,20 @@ BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(
     //custom_spinner->start();
 }
 
+FlatState BaseWrapper::getCurrFlatState(){
+    unique_lock<mutex> state_lock(state_mtx_);
+    return curr_flat_state;
+}
+
+MavState BaseWrapper::getCurrState(){
+    unique_lock<mutex> state_lock(state_mtx_);
+    return curr_state;
+}
+
+bool BaseWrapper::transformStabilized(){
+    unique_lock<mutex> state_lock(state_mtx_);
+    return transform_stabilized;
+}
 
 void BaseWrapper::statCallback(const mavros_msgs::StateConstPtr& stat_msg){
     unique_lock<mutex> lock(state_mtx_);
@@ -183,7 +197,7 @@ BaseWrapper::~BaseWrapper(){
     custom_spinner.reset();
 }
 
-mavros_msgs::PositionTarget BaseWrapper::SetPointToPt(const traj_lib::SetPoint& state){
+mavros_msgs::PositionTarget BaseWrapper::SetPointToPt(const SetPoint& state){
     mavros_msgs::PositionTarget pt;
     pt.header.frame_id = world_frame_name;
     pt.type_mask = IG_YAWR;
