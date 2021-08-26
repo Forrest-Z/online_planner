@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <Eigen/Dense>
 #include <sensor_msgs/PointCloud2.h>
-
+#include <vins_vio_mod/KeyframeInfo.h>
 
 namespace online_planner{
 
@@ -103,5 +103,8 @@ inline void FeatureMapToPointCloud2(const FeatureVoxelMap::type& fm_map, sensor_
     }
 }
 
+inline void kfMsgToKfInfo(const vins_vio_mod::KeyframeInfo& kf_msg, KFInfo){
+    //TODO
+}
 }
 #endif

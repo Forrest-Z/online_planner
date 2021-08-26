@@ -92,7 +92,7 @@ void BaseWrapper::statCallback(const mavros_msgs::StateConstPtr& stat_msg){
 }
 
 void BaseWrapper::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
-    unique_lock<mutex> lock(state_mtx_);
+    unique_lock<mutex> state_lock(state_mtx_);
     if(status_ == Status::ODOM_NOT_SET){
         status_ = Status::ODOM_INIT;
         ROS_WARN("Got odometry info");
@@ -116,11 +116,6 @@ void BaseWrapper::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
     curr_flat_state.states[2].p.setZero();
     Eigen::Vector3d rpy = utils::R2rpy(curr_state.R);
     curr_flat_state.states[0].yaw = rpy(2);
-    lock.unlock();
-
-    //unique_lock<mutex> lock2(traj_path_mtx_);
-    //curr_flat_state.states[2].p = current_best_trajectory[0].states[2].p;
-    //lock2.unlock();
 
     if(status_ == Status::TAKEOFF_SEQUENCE && !transform_stabilized){
         SE3 T_ab = utils::from_vec3_quat(pos, ori);
@@ -130,6 +125,7 @@ void BaseWrapper::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
         ROS_WARN_STREAM("Goal position in Odom frame : "<<goal_o.x()<<", "<<goal_o.y()<<", "<<goal_o.z());
         transform_stabilized = true;
     }
+    state_lock.unlock();
 }
 
 void BaseWrapper::airsimVioInitSingleIter(){
@@ -151,6 +147,7 @@ void BaseWrapper::airsimVioInitSingleIter(){
     }
     if(n_executed > n_bound){
         status_ = Status::TAKEOFF_SEQUENCE;
+        vel_cmd_.twist.linear.z = 0.0;
         n_executed = 0;
         return;
     }

@@ -27,6 +27,10 @@ public:
     }
     void print(bool print_total = true, bool print_avg = true) const{
         std::cout<<prefix_<<std::endl;
+        if(!num_tick) {
+            std::cout<<"Timer didn't operate yet"<<std::endl;
+            return;
+        }
         if(print_total) std::cout<<"Total : "<<total_musec<<"mu sec for "<<num_tick<<" operations"<<std::endl;
         if(print_avg && num_tick > 0) std::cout<<total_musec / num_tick<<" mu sec per operation"<<std::endl;
     }

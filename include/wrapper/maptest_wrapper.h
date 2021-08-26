@@ -4,7 +4,7 @@
 #include <traj_lib/MinJerkPolyTraj.h>
 #include <mapping/octomap_handler.h>
 #include <mapping/featuremap_handler.h>
-#include <vins_vio_mod/KeyframeInfo.h>
+#include <utils/featuremap_types.h>
 
 //very simple wrapper which performs single line flight assuming no obstruction on flight path
 namespace online_planner{
@@ -38,6 +38,7 @@ protected:
 
     //planning related. shared under traj_path_mtx_;
     traj_lib::MinJerkPolyTraj trajectory;
+    bool is_trajectory_set;
     double last_valid_yaw;
     
     //timers
@@ -48,7 +49,11 @@ protected:
     void localPlannerCallback(const ros::TimerEvent& e); 
     void visualizeCallback(const ros::TimerEvent& e);
 
+    //functions those are allowed to gain state_mtx_, traj_path_mtx_
     virtual traj_lib::FlatState getInitState() override;
-    void computePlan();
+    void computePlan(ros::Time t_preplan, traj_lib::FlatState init_state);
+    bool getTimeSpan(double& start, double& end);
+    bool visibilityQueryTest(const double& t_start, const double& t_end, const double& ivl);
+    bool getSetpoints(const double& t_start, const double& t_end, std::vector<mavros_msgs::PositionTarget>& sp_vec);
 };
 }

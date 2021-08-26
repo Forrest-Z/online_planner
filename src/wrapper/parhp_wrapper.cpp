@@ -72,16 +72,31 @@ void PaRhpWrapper::mavrosGlobalCallback(const ros::TimerEvent& e){
 }
 
 void PaRhpWrapper::airsimGlobalCallback(const ros::TimerEvent& e){
+    ros::Time start = ros::Time::now();
+    ros::Duration dur_ctrl(dt_control);
     switch(status_){
-        case Status::ODOM_NOT_SET:
+        case Status::ODOM_NOT_SET:{
             ROS_WARN_ONCE("Odom not set. waiting for odometry info...");
-            airsimVioInitSingleIter();
+            while(true){
+                airsimVioInitSingleIter();
+                if((ros::Time::now() - start).toSec() >= dt_global_planning - dt_control) break;
+                dur_ctrl.sleep();
+            }
             break;
+        }
         case Status::ODOM_INIT:
-            airsimVioInitSingleIter();
+            while(true){
+                airsimVioInitSingleIter();
+                if((ros::Time::now() - start).toSec() >= dt_global_planning - dt_control) break;
+                dur_ctrl.sleep();
+            }
             break;
         case Status::TAKEOFF_SEQUENCE:
-            airsimTakeoffSingleIter();
+            while(true){
+                airsimTakeoffSingleIter();
+                if((ros::Time::now() - start).toSec() >= dt_global_planning - dt_control) break;
+                dur_ctrl.sleep();
+            }
             break;
         case Status::INIT_HOVER:{
             if(transform_stabilized) mp_planner_->setGoal(goal_o);

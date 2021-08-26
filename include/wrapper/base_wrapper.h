@@ -43,7 +43,7 @@ enum class Status{
     //virtual int run() = 0;
     BaseWrapper();
     ~BaseWrapper();
-    //state getters
+    //state getters. all gains state_mtx_
     traj_lib::FlatState getCurrFlatState();
     traj_lib::MavState getCurrState();
     bool transformStabilized();
@@ -65,7 +65,7 @@ protected:
     void airsimTakeoffSingleIter();
     void airsimHoverSingleIter();
 
-    //subscriber
+    //subscriber. callback functions gain state_mtx_ lock
     ros::Subscriber stat_sub;
     void statCallback(const mavros_msgs::StateConstPtr& msg);
     ros::Subscriber odom_sub;
@@ -85,7 +85,7 @@ protected:
     std::string world_frame_name, odom_topic_name;
     mavros_msgs::State mav_stat;
 
-    std::mutex state_mtx_;
+    std::mutex state_mtx_; //following variables are controlled under state_mtx_
     nav_msgs::Odometry curr_odom;
     traj_lib::MavState curr_state;
     traj_lib::FlatState curr_flat_state;
@@ -97,7 +97,7 @@ protected:
     Status status_; //only updated from globalplanthread
     bool mavros_okay, transform_stabilized;
 
-    //loaded from ros
+    //loaded from ros and not modified further
     int type_mask; //type_mask to use in planning
     double dt_control; //setpoint publishing rate. limited to airsim processing speed
     double dt_local_planning; // local planning rate
@@ -105,10 +105,8 @@ protected:
     int sp_per_plan; //how many setpoints are published per local trajectory plan?
     bool is_mavros; //true if using mavros. if false, select airsim_controller/PositionTargets
     bool is_odom_ned; //assume NWU for interface frame, but odometry can be in NED convention
-    double takeoff_height, takeoff_speed; //
-    
+    double takeoff_height, takeoff_speed; // 
     ros::Time reference_time;   //time
-    double getSimTime(ros::Time t){return (t - reference_time).toSec();}
 
     //trajectory & path information
     std::mutex traj_path_mtx_;
@@ -117,6 +115,9 @@ protected:
 
     virtual traj_lib::FlatState getInitState() = 0;
     mavros_msgs::PositionTarget SetPointToPt(const traj_lib::SetPoint& state);
+    double getSimTime(ros::Time t){return (t - reference_time).toSec();}
+
+    //following functions gain state_mtx_
     void checkGoalReached();
 };
 
