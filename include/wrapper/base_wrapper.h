@@ -99,7 +99,6 @@ protected:
 
     //loaded from ros
     int type_mask; //type_mask to use in planning
-    bool verbose; 
     double dt_control; //setpoint publishing rate. limited to airsim processing speed
     double dt_local_planning; // local planning rate
     double dt_global_planning; // global planning rate

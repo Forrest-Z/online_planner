@@ -1,10 +1,54 @@
 <?xml version="1.0"?>
 <launch>
 
+<arg name="dt_control" value="0.021"/>
+<arg name="is_odom_ned" value="false"/>
+<arg name="planner_name" value="maptest_node"/>
 
-<node pkg="online_planner" type="maptest_node" name="maptest_node" output="screen">
-    <param name="qh_n" value="1000"/>
+<node pkg="online_planner" type="maptest_node" name="$(arg planner_name)" output="screen">
+    <!-- remap depth camera topic & info topic-->
+    <remap from="/camera/depth/image_raw" to="TODO"/>
+    <remap from="/camera/depth/camera_info" to="TODO"/>
+
+    <!-- base wrapper-->
+    <param name="sp_per_plan" value="10"/>
+    <param name="dt_global_planning" value="0.6"/>
+    <param name="dt_local_planning" value="0.2"/>
+    <param name="dt_control" value="$(arg dt_control)"/>
+    <param name="takeoff_height" value="1.5"/>
+    <param name="takeoff_speed" value="0.25"/>
+
+    <param name="is_odom_ned" value="$(arg is_odom_ned)"/>
+    <param name="odom_topic_name" value="/vins_estimator/odometry"/>
+    <param name="T_ib_x" value="0.0"/>
+    <param name="T_ib_y" value="0.0"/>
+    <param name="T_ib_z" value="0.07"/>
+    <param name="T_ib_qx" value="0.0"/>
+    <param name="T_ib_qy" value="0.0"/>
+    <param name="T_ib_qz" value="0.0"/>
+    <param name="T_ib_qw" value="1.0"/>
+
+    <!-- extrinsic -->
+    <param name="T_bc_x" value="0.3"/>
+    <param name="T_bc_y" value="0.0"/>
+    <param name="T_bc_z" value="0.1"/>
+    <param name="T_bc_qx" value="0.5"/>
+    <param name="T_bc_qy" value="-0.5"/>
+    <param name="T_bc_qz" value="0.5"/>
+    <param name="T_bc_qw" value="-0.5"/>
+    <!-- goal specification-->
+    <param name="goal_x" value="25.0"/>
+    <param name="goal_y" value="0.0"/>
+    <param name="goal_z" value="1.5"/>
     
+    <param name="plan_delay" value="0.001"/>
+    <param name="v_des" value="1.5"/>
+    <param name="h_fov" value="90.00"/> <!-- in degree-->
+    <param name="v_fov" value="73.74"/>
+
+    <!-- verbosity -->
+    <param name="ot_verbose" value="true"/>
+    <param name="fm_verbose" value="true"/>
 </node>
 
 </launch>

@@ -17,7 +17,6 @@ BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(
     dt_global_planning = nh_custom_.param("dt_global_planning", 0.5);
     dt_local_planning = nh_custom_.param("dt_local_planning", 0.1);
     dt_control = nh_custom_.param("dt_control", 0.025);
-    verbose = nh_custom_.param("verbose", false);
     takeoff_height = nh_custom_.param("takeoff_height", 1.5);
     takeoff_speed = nh_custom_.param("takeoff_speed", 0.25);
 

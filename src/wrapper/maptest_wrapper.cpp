@@ -29,9 +29,11 @@ MaptestWrapper::MaptestWrapper(){
     nh_default_.param("plan_delay", t_plan_delay, 0.01);
     nh_default_.param("v_des", v_des, 1.5);
     double h_fov, v_fov;
-    nh_default_.param("h_fov", h_fov, M_PI_2);
-    nh_default_.param("v_fov", v_fov, M_PI*0.375);
-    fov_rads = make_pair(h_fov, v_fov);
+    nh_default_.param("h_fov", h_fov, 90.0);
+    nh_default_.param("v_fov", v_fov, 73.74);
+    double h_fov_rad = h_fov * M_PI / 180.0;
+    double v_fov_rad = v_fov * M_PI / 180.0;
+    fov_rads = make_pair(h_fov_rad, v_fov_rad);
 
     //verbosity
     nh_default_.param("ot_verbose", ot_verbose_, true);
