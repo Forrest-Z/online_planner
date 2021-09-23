@@ -17,20 +17,32 @@
     <param name="dt_local_planning" value="0.2"/>
     <param name="dt_control" value="$(arg dt_control)"/>
     <param name="takeoff_height" value="1.5"/>
-    <param name="takeoff_speed" value="0.55"/>
+    <param name="takeoff_speed" value="0.2"/>
+    <param name="world_frame_name" value="world"/>
     <param name="is_mavros" value="false"/>
 
     <param name="is_odom_ned" value="$(arg is_odom_ned)"/>
     <param name="odom_topic_name" value="$(arg odom_topic_name)"/>
-    <param name="T_ib_x" value="0.0"/>
-    <param name="T_ib_y" value="0.0"/>
-    <param name="T_ib_z" value="0.07"/>
-    <param name="T_ib_qx" value="0.0"/>
-    <param name="T_ib_qy" value="0.0"/>
-    <param name="T_ib_qz" value="0.0"/>
-    <param name="T_ib_qw" value="1.0"/>
 
-    <!-- extrinsic -->
+    <!-- body to imu extrinsic-->
+    <param name="T_bi_x" value="0.0"/>
+    <param name="T_bi_y" value="0.0"/>
+    <param name="T_bi_z" value="0.00"/>
+    <param name="T_bi_qx" value="1.0"/> <!-- in airsim, IMU is aligned to NED frame convention-->
+    <param name="T_bi_qy" value="0.0"/>
+    <param name="T_bi_qz" value="0.0"/>
+    <param name="T_bi_qw" value="0.0"/>
+
+    <!-- initial body position in user frame-->
+    <param name="T_ub_init_x" value="0.0"/>
+    <param name="T_ub_init_y" value="0.0"/>
+    <param name="T_ub_init_z" value="0.07"/>
+    <param name="T_ub_init_qx" value="0.0"/>
+    <param name="T_ub_init_qy" value="0.0"/>
+    <param name="T_ub_init_qz" value="0.0"/>
+    <param name="T_ub_init_qw" value="1.0"/>
+
+    <!-- body to camera-->
     <param name="T_bc_x" value="0.3"/>
     <param name="T_bc_y" value="0.0"/>
     <param name="T_bc_z" value="0.1"/>
@@ -38,6 +50,7 @@
     <param name="T_bc_qy" value="-0.5"/>
     <param name="T_bc_qz" value="0.5"/>
     <param name="T_bc_qw" value="-0.5"/>
+
     <!-- goal specification-->
     <param name="goal_x" value="25.0"/>
     <param name="goal_y" value="0.0"/>
@@ -46,18 +59,45 @@
     <param name="plan_delay" value="0.001"/>
     <param name="v_des" value="1.0"/>
     <param name="h_fov" value="90.00"/> <!-- in degree-->
-    <param name="v_fov" value="73.74"/>
+    <param name="v_fov" value="58.4561"/>
+    <param name="d_fcut" value="15.0"/>
+
+    <!-- octomap handler -->
+    <param name="oct_res" value="0.2"/>
+    <param name="max_range" value="4.0"/>
+    <param name="undersample_rate" value="4"/>
+    <param name="x_min" value="-1.0"/>
+    <param name="y_min" value="-6.0"/>
+    <param name="z_min" value="-1.0"/>
+    <param name="x_max" value="30.0"/>
+    <param name="y_max" value="6.0"/>
+    <param name="z_max" value="5.0"/>
+    <param name="is_perspective" value="true"/>
+
+    <!-- featuremap handler -->
+    <param name="FeatureMap/d_margin" value="0.5"/>
+    <param name="FeatureMap/d_min" value="0.1"/>
+    <param name="FeatureMap/voxel_size" value="0.4"/>
+    <param name="FeatureMap/max_features_per_voxel" value="10"/>
+    <param name="FeatureMap/save_kf_for" value="3"/>
+    <param name="FeautreMap/cut_ray_ay" value="7.0"/>
 
     <!-- verbosity -->
-    <param name="ot_verbose" value="false"/>
-    <param name="fm_verbose" value="false"/>
+    <param name="ot_verbose" value="true"/>
+    <param name="fm_verbose" value="true"/>
+    <param name="print_setstate" value="false"/>
+    <param name="print_trajectory" value="false"/>
 </node>
 
-<include file="$(find airsim_controller)/launch/geometric_controller.launch">
+<!--include file="$(find airsim_controller)/launch/geometric_controller.launch">
     <arg name="traj_topic_name" value="/$(arg planner_name)/reference_trajectory"/>
-    <arg name="dt_control" value="$(arg dt_control)"/>
     <arg name="is_ned" value="$(arg is_odom_ned)"/>
     <arg name="odom_name" value="$(arg odom_topic_name)"/>
-</include>
+</include>-->
 
+<node name="rviz" pkg="rviz" type="rviz" output="log" args="-d $(find online_planner)/rviz/maptest.rviz"/>
+
+<!-- ROSBAG -->
+<node name="record" pkg="rosbag" type="record" args="-o $(find online_planner)/rosbag/vio_test.bag 
+$(arg odom_topic_name) /$(arg planner_name)/reference_trajectory /airsim_node/SimpleFlight/rpy_or_rate_throttle"/>
 </launch>

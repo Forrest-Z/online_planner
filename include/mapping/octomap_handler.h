@@ -34,7 +34,7 @@ public:
     void insertUpdate(pcl::PointCloud<pcl::PointXYZI> changed_set);
     void getOctomapMsg(octomap_msgs::Octomap& oct_msg);
     double castRay(Eigen::Vector3d origin, Eigen::Vector3d direction, double range, bool ignore_unknown=true);
-    void castRayGroup(Eigen::Vector3d p_query, const std::vector<Eigen::Vector3d>& points, std::vector<bool>& is_occluded, double d_margin, bool ignore_unknown=true);
+    void castRayGroup(Eigen::Vector3d p_query, const std::vector<Eigen::Vector3d>& points, std::vector<bool>& is_occluded, double d_margin, double d_max, bool ignore_unknown=true);
     void setDepthcamModel(sensor_msgs::CameraInfo cam_info){
         std::unique_lock<std::mutex> lock(sub_ot_mtx_);
         if(depthcam_model_set) return;

@@ -55,12 +55,12 @@ void OctomapHandler::insertPointcloud(const sensor_msgs::ImageConstPtr img_msg, 
     unique_lock<mutex> lock(sub_ot_mtx_, defer_lock);
     sensor_msgs::PointCloud2::Ptr pcd_ptr(new sensor_msgs::PointCloud2);
     if(img_msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1) {
-        if(is_perspective) depth_to_pc_perspective<uint16_t>(img_msg, pcd_ptr, depthcam_model, max_range, undersample_rate, true); 
-        else depth_to_pc<uint16_t>(img_msg, pcd_ptr, depthcam_model, max_range, undersample_rate, true); 
+        if(is_perspective) depth_to_pc_perspective<uint16_t>(img_msg, pcd_ptr, depthcam_model, max_range+oct_res, undersample_rate, true); 
+        else depth_to_pc<uint16_t>(img_msg, pcd_ptr, depthcam_model, max_range+oct_res, undersample_rate, true); 
     }
     else{
-        if(is_perspective) depth_to_pc_perspective<float>(img_msg, pcd_ptr, depthcam_model, max_range, undersample_rate, true); 
-        else depth_to_pc<float>(img_msg, pcd_ptr, depthcam_model, max_range, undersample_rate, true);
+        if(is_perspective) depth_to_pc_perspective<float>(img_msg, pcd_ptr, depthcam_model, max_range+oct_res, undersample_rate, true); 
+        else depth_to_pc<float>(img_msg, pcd_ptr, depthcam_model, max_range+oct_res, undersample_rate, true);
     }
     octomap::Pointcloud oct_cloud;
     pc2ToOctomap(*pcd_ptr, oct_cloud);
@@ -133,7 +133,7 @@ double OctomapHandler::castRay(Eigen::Vector3d origin, Eigen::Vector3d direction
 }
 
 // pair.first contain points to be casted. pair.second will be the placeholder for whether the point is occluded or not
-void OctomapHandler::castRayGroup(Eigen::Vector3d p_query, const vector<Eigen::Vector3d>& points, vector<bool>& is_occluded, double d_margin, bool ignore_unknown){
+void OctomapHandler::castRayGroup(Eigen::Vector3d p_query, const vector<Eigen::Vector3d>& points, vector<bool>& is_occluded, double d_margin, double d_max, bool ignore_unknown){
     unique_lock<mutex> lock(pub_ot_mtx_, defer_lock); //following getDistanceAtPosition will be blocked otherwise
     octomap::point3d p_ = toOctVec(p_query);
     double d_free = getDistanceAtPosition(p_query); //minimum free radius around p_query, which we don't want cast ray anymore
@@ -141,11 +141,16 @@ void OctomapHandler::castRayGroup(Eigen::Vector3d p_query, const vector<Eigen::V
     is_occluded.resize(points.size());
     lock.lock();
     for(int idx = 0; idx < points.size() ;++idx){
+        Eigen::Vector3d point = points[idx];
         castray_timer.tic();
-        double range = (points[idx] - p_query).norm() - d_margin - d_free;
-        Eigen::Vector3d dir = (points[idx] - p_query).normalized();
+        double dist = (point - p_query).norm();
+        Eigen::Vector3d dir = (point - p_query)/dist;
+        if(dist > d_max){
+            point = p_query + d_max*dir;
+        }
+        double range = dist - d_margin - d_free;
         octomap::point3d dir_oct = toOctVec(dir);
-        octomap::point3d o = toOctVec(points[idx] - dir*d_margin);
+        octomap::point3d o = toOctVec(point - dir*d_margin);
         octomap::point3d endpoint;
         is_occluded[idx] = pub_ot_->castRay(o, dir_oct, endpoint, ignore_unknown, range); //true if occluded, false if free cell
         castray_timer.toc();

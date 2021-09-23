@@ -76,17 +76,15 @@ protected:
 
     int n_bound, n_hover;
     int n_executed;
+    int n_stable;
     
     //mission, frame related variables
-    transform_utils::SE3 T_ib_init; // initial pose in  "interface frame"(user defined frame)
-    Eigen::Vector3d goal_i, goal_o; //goal position in interface frame/odom frame
-    transform_utils::SE3 T_oi;      // odom frame to interface frame
-    //std::vector<transform_utils::SE3> T_ab_init_vec;    //used to compute initial relative transform : T_ai
+    Eigen::Vector3d goal_u, goal_o; //goal position in user frame/odom frame
     std::string world_frame_name, odom_topic_name;
     mavros_msgs::State mav_stat;
 
     std::mutex state_mtx_; //following variables are controlled under state_mtx_
-    nav_msgs::Odometry curr_odom;
+    nav_msgs::Odometry imu_odom; //IMU frame odometry
     traj_lib::MavState curr_state;
     traj_lib::FlatState curr_flat_state;
     ros::Time t_last_odom_input;
@@ -98,6 +96,8 @@ protected:
     bool mavros_okay, transform_stabilized;
 
     //loaded from ros and not modified further
+    transform_utils::SE3 T_bi; //body to IMU transform
+    transform_utils::SE3 T_ub_init; // initial pose of body frame w.r.t user frame
     int type_mask; //type_mask to use in planning
     double dt_control; //setpoint publishing rate. limited to airsim processing speed
     double dt_local_planning; // local planning rate
@@ -107,6 +107,8 @@ protected:
     bool is_odom_ned; //assume NWU for interface frame, but odometry can be in NED convention
     double takeoff_height, takeoff_speed; // 
     ros::Time reference_time;   //time
+    // verbosities
+    bool print_setstate, print_trajectory;
 
     //trajectory & path information
     std::mutex traj_path_mtx_;
@@ -120,6 +122,21 @@ protected:
     //following functions gain state_mtx_
     void checkGoalReached();
 };
+
+inline transform_utils::SE3 loadTransformFromRos(std::string prefix, const ros::NodeHandle& nh){
+    transform_utils::SE3 T;
+    Eigen::Vector3d p;
+    Eigen::Quaterniond q;
+    p.x() = nh.param(prefix+"_x", 0.0);
+    p.y() = nh.param(prefix+"_y", 0.0);
+    p.z() = nh.param(prefix+"_z", 0.0);
+    q.x() = nh.param(prefix+"_qx", 0.0);
+    q.y() = nh.param(prefix+"_qy", 0.0);
+    q.z() = nh.param(prefix+"_qz", 0.0);
+    q.w() = nh.param(prefix+"_qw", 1.0);
+    T = transform_utils::utils::from_vec3_quat(p, q);
+    return T;
+}
 
 }
 

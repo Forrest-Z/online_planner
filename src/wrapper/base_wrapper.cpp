@@ -11,7 +11,7 @@ BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(
     nh_default_ = ros::NodeHandle("~"); //private
     nh_custom_ = ros::NodeHandle("~");
     nh_custom_.setCallbackQueue(&custom_queue);
-    custom_spinner.reset(new ros::AsyncSpinner(2, &custom_queue)); //for global planning, local planning each
+    custom_spinner.reset(new ros::AsyncSpinner(1, &custom_queue)); //for global planning, local planning each
     
     sp_per_plan = nh_custom_.param("sp_per_plan", 5);
     dt_global_planning = nh_custom_.param("dt_global_planning", 0.5);
@@ -19,26 +19,18 @@ BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(
     dt_control = nh_custom_.param("dt_control", 0.025);
     takeoff_height = nh_custom_.param("takeoff_height", 1.5);
     takeoff_speed = nh_custom_.param("takeoff_speed", 0.25);
+    nh_custom_.param("world_frame_name", world_frame_name, std::string("world"));
 
     is_odom_ned = nh_custom_.param("is_odom_ned", false);
     is_mavros = nh_custom_.param("is_mavros", true);
     
     //initial pose in interface frame
-    double x, y, z, qx, qy, qz, qw;
-    Eigen::Vector3d p;
-    Eigen::Quaterniond q;
-    p.x() = nh_custom_.param("T_ib_x", 0.0);
-    p.y() = nh_custom_.param("T_ib_y", 0.0);
-    p.z() = nh_custom_.param("T_ib_z", 0.0);
-    q.x() = nh_custom_.param("T_ib_qx", 0.0);
-    q.y() = nh_custom_.param("T_ib_qy", 0.0);
-    q.z() = nh_custom_.param("T_ib_qz", 0.0);
-    q.w() = nh_custom_.param("T_ib_qw", 1.0);
-    T_ib_init = utils::from_vec3_quat(p, q);
+    T_bi = loadTransformFromRos(std::string("T_bi"), nh_custom_);
+    T_ub_init = loadTransformFromRos(std::string("T_ub_init"), nh_custom_);
 
-    goal_i.x() = nh_custom_.param("goal_x", 20.0);
-    goal_i.y() = nh_custom_.param("goal_y", 0.0);
-    goal_i.z() = nh_custom_.param("goal_z", 5.0);
+    goal_u.x() = nh_custom_.param("goal_x", 20.0);
+    goal_u.y() = nh_custom_.param("goal_y", 0.0);
+    goal_u.z() = nh_custom_.param("goal_z", 5.0);
 
     odom_topic_name = nh_custom_.param("odom_topic_name", string("/mavros/local_position/odom"));
     odom_sub = nh_custom_.subscribe(odom_topic_name, 10, &BaseWrapper::odomCallback, this);
@@ -55,6 +47,7 @@ BaseWrapper::BaseWrapper():transform_stabilized(false), current_best_trajectory(
         n_executed = 0;
         n_bound = static_cast<int>(takeoff_height / takeoff_speed / dt_control) + 1;
         n_hover = static_cast<int>(1.0 / dt_control);
+        n_stable = n_bound/3;
         vel_cmd_.twist.linear.x = vel_cmd_.twist.linear.y = 0.0;
         control_stop_client = nh_custom_.serviceClient<std_srvs::Trigger>("/geometric_controller/stop");
     }
@@ -86,6 +79,7 @@ void BaseWrapper::statCallback(const mavros_msgs::StateConstPtr& stat_msg){
         mavros_okay = true;
     if(status_ == Status::ODOM_INIT && mavros_okay){
         status_ = Status::TAKEOFF_SEQUENCE; 
+        ROS_WARN_ONCE("[Status transition] : to TAKEOFF_SEQUENCE");
         // this is okay cause in real life excitation will be done manually,and this callback is only activated under mavros setting
         // in airsim, alternative 
     }
@@ -96,20 +90,25 @@ void BaseWrapper::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
     if(status_ == Status::ODOM_NOT_SET){
         status_ = Status::ODOM_INIT;
         ROS_WARN("Got odometry info");
+        ROS_WARN_ONCE("[Status transition] : to ODOM_INIT");
     }
-    curr_odom = *odom_msg;
-    t_last_odom_input = curr_odom.header.stamp;
-    auto pos = curr_odom.pose.pose.position;
-    auto ori = curr_odom.pose.pose.orientation;
+    imu_odom = *odom_msg; //Note that imu_odom is defined for imu frame
+    t_last_odom_input = imu_odom.header.stamp;
+    auto pos = imu_odom.pose.pose.position;
+    auto ori = imu_odom.pose.pose.orientation;
     if(is_odom_ned){
-        curr_odom.pose.pose.position.y = -odom_msg->pose.pose.position.y;
-        curr_odom.pose.pose.position.z = -odom_msg->pose.pose.position.z;
-        curr_odom.pose.pose.orientation.y = -odom_msg->pose.pose.orientation.y;
-        curr_odom.pose.pose.orientation.z = -odom_msg->pose.pose.orientation.z;
+        imu_odom.pose.pose.position.y = -odom_msg->pose.pose.position.y;
+        imu_odom.pose.pose.position.z = -odom_msg->pose.pose.position.z;
+        imu_odom.pose.pose.orientation.y = -odom_msg->pose.pose.orientation.y;
+        imu_odom.pose.pose.orientation.z = -odom_msg->pose.pose.orientation.z;
     }
-    curr_state.p = geovec_to_eigen<geometry_msgs::Point>(curr_odom.pose.pose.position);
-    curr_state.R = utils::gquat2rot(curr_odom.pose.pose.orientation);
-    curr_state.v_w = geovec_to_eigen<geometry_msgs::Vector3>(curr_odom.twist.twist.linear);
+    Eigen::Vector3d p_oi = geovec_to_eigen<geometry_msgs::Point>(imu_odom.pose.pose.position);
+    Eigen::Matrix3d R_oi = utils::gquat2rot(imu_odom.pose.pose.orientation);
+    SE3 T_oi = from_Rp(R_oi, p_oi);
+    SE3 T_ob = T_oi * T_bi.inverse(); //body frame
+    curr_state.p = T_ob.translation();
+    curr_state.R = T_ob.rotation();
+    curr_state.v_w = geovec_to_eigen<geometry_msgs::Vector3>(imu_odom.twist.twist.linear); //TODO : does this need modification or is it descripted in world frame?
     curr_flat_state.states.resize(3);
     curr_flat_state.states[0].p = curr_state.p;
     curr_flat_state.states[1].p = curr_state.v_w;
@@ -118,10 +117,10 @@ void BaseWrapper::odomCallback(const nav_msgs::OdometryConstPtr& odom_msg){
     curr_flat_state.states[0].yaw = rpy(2);
 
     if(status_ == Status::TAKEOFF_SEQUENCE && !transform_stabilized){
-        SE3 T_ab = utils::from_vec3_quat(pos, ori);
-        T_oi = T_ab*T_ib_init.inverse();
-        ROS_WARN_STREAM("odometry - Interface frame transform stabilized");
-        goal_o = T_oi.rotation() * goal_i + T_oi.translation();
+        SE3 T_ou = T_ob*T_ub_init.inverse(); 
+        ROS_WARN_STREAM("odometry - User frame transform stabilized : "<<endl<<T_ou.matrix());
+        //goal_o = T_ou.rotation() * goal_u + T_ou.translation();
+        goal_o = goal_u + T_ou.translation();
         ROS_WARN_STREAM("Goal position in Odom frame : "<<goal_o.x()<<", "<<goal_o.y()<<", "<<goal_o.z());
         transform_stabilized = true;
     }
@@ -136,19 +135,23 @@ void BaseWrapper::airsimVioInitSingleIter(){
     if(status_ >= Status::TAKEOFF_SEQUENCE){
         return;
     }
-    if(n_executed < n_bound / 2){
-        vel_cmd_.twist.linear.z = - takeoff_speed * 2.0; //these assume downward z axis
+    if(n_executed < n_bound / 3){
+        vel_cmd_.twist.linear.z = - takeoff_speed * 1.0; //these assume downward z axis
     }
-    else if(n_executed == n_bound / 2){
+    else if(n_executed == n_bound / 3){
         vel_cmd_.twist.linear.z = 0.0;
     }
-    else{
-        vel_cmd_.twist.linear.z = takeoff_speed * 2.0;
+    else if(n_executed  < n_bound * 2/3){
+        vel_cmd_.twist.linear.z = takeoff_speed * 1.0;
+    }
+    else if(n_executed < n_bound){
+        vel_cmd_.twist.linear.z = 0.0;
     }
     if(n_executed > n_bound){
         status_ = Status::TAKEOFF_SEQUENCE;
         vel_cmd_.twist.linear.z = 0.0;
         n_executed = 0;
+        ROS_WARN_ONCE("[Status transition] : to TAKEOFF_SEQUENCE");
         return;
     }
     airsim_vel_pub.publish(vel_cmd_);
@@ -166,6 +169,7 @@ void BaseWrapper::airsimTakeoffSingleIter(){
     else{
         n_executed = 0;
         status_ = Status::INIT_HOVER;
+        ROS_WARN_ONCE("[Status transition] : to INIT_HOVER");
         return;
     }
     airsim_vel_pub.publish(vel_cmd_);
@@ -183,6 +187,7 @@ void BaseWrapper::airsimHoverSingleIter(){
     else{
         n_executed = 0;
         status_ = Status::FLIGHT;
+        ROS_WARN_ONCE("[Status transition] : to FLIGHT");
         return;
     }
     airsim_vel_pub.publish(vel_cmd_);
@@ -214,6 +219,7 @@ void BaseWrapper::checkGoalReached(){
     if((curr_p - goal).norm() < 0.4){
         control_stop_client.call(trig);
         status_ = Status::REACHED_GOAL;
+        ROS_WARN_ONCE("[Status transition] : to REACHED_GOAL");
     }
     return;
 }

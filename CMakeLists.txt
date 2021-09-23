@@ -10,20 +10,20 @@ find_package(octomap REQUIRED)
 find_package(dynamicEDT3D REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
-    roscpp
-    geometry_msgs
-    visualization_msgs
-    mavros_msgs
-    message_generation
-    depth2pc
-    transform_utils
-    gflags_catkin
-    glog_catkin
-    pcl_ros
-    pcl_conversions
-    traj_lib
-    airsim_controller
-    vins_vio_mod
+  roscpp
+  geometry_msgs
+  visualization_msgs
+  mavros_msgs
+  message_generation
+  depth2pc
+  transform_utils
+  gflags_catkin
+  glog_catkin
+  pcl_ros
+  pcl_conversions
+  traj_lib
+  airsim_controller
+  vins_vio_mod
 )
 
 
@@ -88,3 +88,8 @@ target_link_libraries(maptest_node
 add_executable(qh_test src/test/qh_test.cpp)
 add_dependencies(qh_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(qh_test ${catkin_LIBRARIES})
+
+add_executable(fm_test src/test/fm_test.cpp)
+add_dependencies(fm_test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(fm_test ${PROJECT_NAME}   ${OCTOMAP_LIBRARIES}
+${DYNAMICEDT3D_LIBRARIES} ${catkin_LIBRARIES})

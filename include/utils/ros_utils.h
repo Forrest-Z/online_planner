@@ -38,8 +38,8 @@ inline FeatureMapHandler::Param loadFmParam(ros::NodeHandle nh_private){
     nh_private.param("FeatureMap/voxel_size", p.v_size, 0.2);
     nh_private.param("FeatureMap/max_features_per_voxel", p.mf, 10);
     nh_private.param("FeatureMap/save_kf_for", p.save_kf_for, 9);
-    
-
+    nh_private.param("FeatureMap/cut_ray_at", p.cut_ray_at, 10.0);
+    return p;
 }
 
 inline MpEvaluator::Param loadMpEvalParam(ros::NodeHandle nh_private){

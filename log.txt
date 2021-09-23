@@ -1,0 +1,109 @@
+... logging to /home/kgc0609/.ros/log/5666ff10-1544-11ec-961d-02423b4310db/roslaunch-kgc-in-larr-19747.log
+Checking log directory for disk usage. This may take a while.
+Press Ctrl-C to interrupt
+Done checking log file disk usage. Usage is <1GB.
+]2;/home/kgc0609/catkin_ws/src/online_planner/launch/maptest.launch
+[1mstarted roslaunch server http://kgc-in-larr:36733/[0m
+
+SUMMARY
+========
+
+PARAMETERS
+ * /geometric_controller/T_bi_qw: 0.0
+ * /geometric_controller/T_bi_qx: 1.0
+ * /geometric_controller/T_bi_qy: 0.0
+ * /geometric_controller/T_bi_qz: 0.0
+ * /geometric_controller/T_bi_x: 0.0
+ * /geometric_controller/T_bi_y: 0.0
+ * /geometric_controller/T_bi_z: 0.0
+ * /geometric_controller/dt_loop: 0.002
+ * /geometric_controller/g: 9.355
+ * /geometric_controller/is_body_twist: False
+ * /geometric_controller/is_ned: False
+ * /geometric_controller/k_R_1: 20.0
+ * /geometric_controller/k_R_2: 20.0
+ * /geometric_controller/k_R_3: 20.0
+ * /geometric_controller/k_p: 0.5
+ * /geometric_controller/k_v: 0.25
+ * /geometric_controller/m: 0.06349
+ * /geometric_controller/traj_topic_name: /maptest_node/ref...
+ * /maptest_node/FeatureMap/d_margin: 0.5
+ * /maptest_node/FeatureMap/d_min: 0.1
+ * /maptest_node/FeatureMap/max_features_per_voxel: 10
+ * /maptest_node/FeatureMap/save_kf_for: 9
+ * /maptest_node/FeatureMap/voxel_size: 0.2
+ * /maptest_node/T_bc_qw: -0.5
+ * /maptest_node/T_bc_qx: 0.5
+ * /maptest_node/T_bc_qy: -0.5
+ * /maptest_node/T_bc_qz: 0.5
+ * /maptest_node/T_bc_x: 0.3
+ * /maptest_node/T_bc_y: 0.0
+ * /maptest_node/T_bc_z: 0.1
+ * /maptest_node/T_bi_qw: 0.0
+ * /maptest_node/T_bi_qx: 1.0
+ * /maptest_node/T_bi_qy: 0.0
+ * /maptest_node/T_bi_qz: 0.0
+ * /maptest_node/T_bi_x: 0.0
+ * /maptest_node/T_bi_y: 0.0
+ * /maptest_node/T_bi_z: 0.0
+ * /maptest_node/T_ub_init_qw: 1.0
+ * /maptest_node/T_ub_init_qx: 0.0
+ * /maptest_node/T_ub_init_qy: 0.0
+ * /maptest_node/T_ub_init_qz: 0.0
+ * /maptest_node/T_ub_init_x: 0.0
+ * /maptest_node/T_ub_init_y: 0.0
+ * /maptest_node/T_ub_init_z: 0.07
+ * /maptest_node/dt_control: 0.022
+ * /maptest_node/dt_global_planning: 0.6
+ * /maptest_node/dt_local_planning: 0.2
+ * /maptest_node/fm_verbose: False
+ * /maptest_node/goal_x: 25.0
+ * /maptest_node/goal_y: 0.0
+ * /maptest_node/goal_z: 1.5
+ * /maptest_node/h_fov: 90.0
+ * /maptest_node/is_mavros: False
+ * /maptest_node/is_odom_ned: False
+ * /maptest_node/is_perspective: True
+ * /maptest_node/max_range: 6.0
+ * /maptest_node/oct_res: 0.2
+ * /maptest_node/odom_topic_name: /vins_estimator/o...
+ * /maptest_node/ot_verbose: False
+ * /maptest_node/plan_delay: 0.001
+ * /maptest_node/print_setstate: True
+ * /maptest_node/print_trajectory: True
+ * /maptest_node/sp_per_plan: 10
+ * /maptest_node/takeoff_height: 1.5
+ * /maptest_node/takeoff_speed: 0.2
+ * /maptest_node/undersample_rate: 4
+ * /maptest_node/v_des: 1.0
+ * /maptest_node/v_fov: 58.4561
+ * /maptest_node/world_frame_name: world
+ * /maptest_node/x_max: 30.0
+ * /maptest_node/x_min: -1.0
+ * /maptest_node/y_max: 6.0
+ * /maptest_node/y_min: -6.0
+ * /maptest_node/z_max: 5.0
+ * /maptest_node/z_min: -1.0
+ * /rosdistro: melodic
+ * /rosversion: 1.14.11
+
+NODES
+  /
+    geometric_controller (airsim_controller/geometric_controller)
+    maptest_node (online_planner/maptest_node)
+    record (rosbag/record)
+    rviz (rviz/rviz)
+
+[1mROS_MASTER_URI=http://localhost:11311[0m
+]2;/home/kgc0609/catkin_ws/src/online_planner/launch/maptest.launch http://localhost:11311
+[1mprocess[maptest_node-1]: started with pid [19770][0m
+[1mprocess[geometric_controller-2]: started with pid [19771][0m
+[1mprocess[rviz-3]: started with pid [19772][0m
+[1mprocess[record-4]: started with pid [19781][0m
+[record-4] killing on exit
+[rviz-3] killing on exit
+[geometric_controller-2] killing on exit
+[maptest_node-1] killing on exit
+shutting down processing monitor...
+... shutting down processing monitor complete
+[1mdone[0m

@@ -14,7 +14,7 @@ namespace online_planner{
 class FeatureMapHandler{
 public:
     struct Param{
-        double d_margin, d_min, v_size;
+        double d_margin, d_min, v_size, cut_ray_at;
         int mf, save_kf_for;
     };
     FeatureMapHandler(Param p);
@@ -56,6 +56,7 @@ private:
     double d_margin_; // amount of margin for checking raycast operation
     double d_min_; //minimum distance for the feature to be "visible"
     double voxel_size_; //voxel size
+    double cut_ray_at_;
     int max_features_per_voxel_; //maximum number of features per voxel to maintain.
     int save_kf_for_;
 

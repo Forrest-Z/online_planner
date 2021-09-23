@@ -99,8 +99,12 @@ void PaRhpWrapper::airsimGlobalCallback(const ros::TimerEvent& e){
             }
             break;
         case Status::INIT_HOVER:{
+            while(true){
+                airsimHoverSingleIter();
+                if((ros::Time::now() - start).toSec() >= dt_global_planning - dt_control) break;
+                dur_ctrl.sleep();
+            }
             if(transform_stabilized) mp_planner_->setGoal(goal_o);
-            airsimHoverSingleIter();
             break;
         }
         case Status::FLIGHT:

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+
+<node pkg="online_planner" type="fm_test" name="fm_test" output="screen">
+    <!-- featuremap handler -->
+    <param name="FeatureMap/d_margin" value="0.5"/>
+    <param name="FeatureMap/d_min" value="0.1"/>
+    <param name="FeatureMap/voxel_size" value="0.4"/>
+    <param name="FeatureMap/max_features_per_voxel" value="10"/>
+    <param name="FeatureMap/save_kf_for" value="5"/>
+    <param name="FeautreMap/cut_ray_ay" value="7.0"/>
+</node>
+
+
+</launch>
